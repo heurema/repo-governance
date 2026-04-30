@@ -1,5 +1,7 @@
 # repo-governance
 
+![repo-governance overview](docs/assets/repo-governance.png)
+
 Reusable repository governance tooling for Heúrema projects.
 
 The first tool is **PR Intake Gate**: a deterministic GitHub Action that lets trusted maintainers move fast while requiring stronger intake checks for outside contributors.
