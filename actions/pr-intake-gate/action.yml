@@ -1,0 +1,27 @@
+name: PR Intake Gate
+description: Deterministic PR intake gate for external contributors.
+
+inputs:
+  policy-path:
+    description: Path to the repository-local PR intake policy.
+    required: false
+    default: .github/pr-intake-gate.yml
+  github-token:
+    description: GitHub token used to read PR metadata and update labels/comments.
+    required: false
+    default: ''
+  dry-run:
+    description: Run without writing labels or comments.
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Run PR intake gate
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        PR_INTAKE_GATE_DRY_RUN: ${{ inputs.dry-run }}
+      run: |
+        python3 "$GITHUB_ACTION_PATH/pr_intake_gate.py" --policy "${{ inputs.policy-path }}"

@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/heurema/repo-governance/schemas/pr-intake-gate.schema.json",
+  "title": "PR Intake Gate policy",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string"}
+      }
+    },
+    "trivial": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_changed_lines": {"type": "integer", "minimum": 0},
+        "allowed_path_globs": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "high_risk": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "description": {"type": "string"}
+      }
+    },
+    "high_risk_path_globs": {"type": "array", "items": {"type": "string"}},
+    "trusted_authors": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "permissions": {"type": "array", "items": {"type": "string"}},
+        "fallback_author_associations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "external_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required_sections": {"type": "array", "items": {"type": "string"}},
+        "no_code_section": {"type": "string"},
+        "first_time_author_associations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": {"type": "string"},
+      "properties": {
+        "pass": {"type": "string"},
+        "needs_intent": {"type": "string"},
+        "needs_issue": {"type": "string"},
+        "needs_more_context": {"type": "string"},
+        "no_code_alternative": {"type": "string"},
+        "high_risk": {"type": "string"},
+        "accepted_for_pr": {"type": "string"},
+        "first_time": {"type": "string"},
+        "override": {"type": "string"}
+      }
+    },
+    "linked_intent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "description": {"type": "string"},
+        "accept_patterns": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "label_details": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "color": {"type": "string", "pattern": "^[0-9a-fA-F]{6}$"},
+          "description": {"type": "string", "maxLength": 100}
+        }
+      }
+    },
+    "bot_comment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "marker": {"type": "string"}
+      }
+    }
+  }
+}
