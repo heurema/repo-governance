@@ -29,6 +29,50 @@ DEFAULT_CONFIG_PATH = os.path.join(ROOT, ".github", "pr-intake-gate.yml")
 DEFAULT_API_URL = "https://api.github.com"
 DEFAULT_MARKER = "<!-- pr-intake-gate -->"
 DEFAULT_USER_AGENT = "repo-governance-pr-intake-gate"
+DEFAULT_INSTRUCTION_SURFACE_PATH_GLOBS = (
+    "README.md",
+    "README*.md",
+    "**/README.md",
+    "AGENTS.md",
+    "**/AGENTS.md",
+    "CLAUDE.md",
+    "**/CLAUDE.md",
+    "GEMINI.md",
+    "**/GEMINI.md",
+    "SKILL.md",
+    "**/SKILL.md",
+    ".github/PULL_REQUEST_TEMPLATE.md",
+    ".github/pull_request_template.md",
+    ".github/pull_request_template/**",
+    ".github/ISSUE_TEMPLATE/**",
+    ".github/copilot-instructions.md",
+    ".github/pr-intake-gate.yml",
+)
+DEFAULT_PROMPT_INJECTION_TEXT_GLOBS = (
+    "*.md",
+    "**/*.md",
+    "*.mdx",
+    "**/*.mdx",
+    "*.txt",
+    "**/*.txt",
+    ".github/**",
+    "docs/**",
+)
+DEFAULT_PROMPT_INJECTION_PATTERNS = (
+    r"\bignore\s+(all\s+)?(previous|prior|above|system|developer)\s+instructions\b",
+    r"\bdisregard\s+(all\s+)?(previous|prior|above|system|developer)\s+instructions\b",
+    r"\bdo\s+not\s+(follow|obey)\s+(the\s+)?(system|developer|previous|above)\s+instructions\b",
+    r"\breveal\s+(the\s+)?(system|developer)\s+prompt\b",
+    r"\b(print|output|dump)\s+(the\s+)?(system|developer)\s+prompt\b",
+    r"\byou\s+are\s+now\s+(in\s+)?(developer|admin|root|jailbreak)\s+mode\b",
+    r"\bexfiltrate\b.*\b(secret|token|key|credential|prompt)\b",
+    r"\b(system|developer)\s+message\s*:",
+    r"\$\s*\\color\{white\}",
+    r"display\s*:\s*none",
+    r"font-size\s*:\s*0",
+    r"color\s*:\s*(white|#fff|#ffffff|transparent)",
+)
+DEFAULT_PROMPT_INJECTION_HIDDEN_CHARS = "\u200b\u200c\u200d\u2060\ufeff"
 
 
 class GateError(RuntimeError):
@@ -53,6 +97,7 @@ class ChangedFile:
     filename: str
     additions: int
     deletions: int
+    patch: str | None = None
 
 
 @dataclass(frozen=True)
@@ -304,6 +349,7 @@ def load_changed_files(ctx: PullRequestContext) -> list[ChangedFile]:
                 filename=str(item.get("filename") or ""),
                 additions=int(item.get("additions") or 0),
                 deletions=int(item.get("deletions") or 0),
+                patch=str(item["patch"]) if item.get("patch") is not None else None,
             )
         )
     return changed
@@ -334,6 +380,84 @@ def match_path_parts(path_parts: tuple[str, ...], pattern_parts: tuple[str, ...]
 
 def matching_patterns(path: str, patterns: Iterable[str]) -> list[str]:
     return [pattern for pattern in patterns if path_matches(path, pattern)]
+
+
+def added_lines_from_patch(patch: str | None) -> list[str]:
+    if not patch:
+        return []
+    lines: list[str] = []
+    for line in patch.splitlines():
+        if line.startswith("+++") or not line.startswith("+"):
+            continue
+        lines.append(line[1:])
+    return lines
+
+
+def instruction_surface_path_globs(config: dict[str, Any]) -> list[str]:
+    return list_config(
+        config,
+        ("instruction_surface", "path_globs"),
+        list(DEFAULT_INSTRUCTION_SURFACE_PATH_GLOBS),
+    )
+
+
+def prompt_injection_text_globs(config: dict[str, Any]) -> list[str]:
+    return list_config(
+        config,
+        ("prompt_injection", "text_path_globs"),
+        list(DEFAULT_PROMPT_INJECTION_TEXT_GLOBS),
+    )
+
+
+def prompt_injection_patterns(config: dict[str, Any]) -> list[str]:
+    return list_config(
+        config,
+        ("prompt_injection", "suspicious_added_patterns"),
+        list(DEFAULT_PROMPT_INJECTION_PATTERNS),
+    )
+
+
+def suspicious_added_instruction_findings(config: dict[str, Any], files: Iterable[ChangedFile]) -> list[dict[str, str]]:
+    if not bool_config(config, ("prompt_injection", "enabled"), True):
+        return []
+
+    text_globs = prompt_injection_text_globs(config)
+    compiled_patterns: list[tuple[str, re.Pattern[str]]] = []
+    for pattern in prompt_injection_patterns(config):
+        try:
+            compiled_patterns.append((pattern, re.compile(pattern, flags=re.IGNORECASE)))
+        except re.error as exc:
+            raise GateError(f"invalid prompt_injection.suspicious_added_patterns regex {pattern!r}: {exc}") from exc
+
+    findings: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for changed_file in files:
+        if not matching_patterns(changed_file.filename, text_globs):
+            continue
+        for added_line in added_lines_from_patch(changed_file.patch):
+            hidden_chars = "".join(ch for ch in added_line if ch in DEFAULT_PROMPT_INJECTION_HIDDEN_CHARS)
+            if hidden_chars:
+                key = (changed_file.filename, "hidden-unicode-control")
+                if key not in seen:
+                    findings.append(
+                        {
+                            "path": changed_file.filename,
+                            "reason": "hidden-unicode-control",
+                        }
+                    )
+                    seen.add(key)
+            for raw_pattern, compiled in compiled_patterns:
+                if compiled.search(added_line):
+                    key = (changed_file.filename, raw_pattern)
+                    if key not in seen:
+                        findings.append(
+                            {
+                                "path": changed_file.filename,
+                                "reason": raw_pattern,
+                            }
+                        )
+                        seen.add(key)
+    return findings
 
 
 def has_linked_intent(text: str, patterns: Iterable[str]) -> bool:
@@ -397,6 +521,21 @@ def scalar_config(config: dict[str, Any], path: tuple[str, ...], default: str) -
             return default
         raw = raw.get(key)
     return str(raw) if raw is not None else default
+
+
+def bool_config(config: dict[str, Any], path: tuple[str, ...], default: bool) -> bool:
+    raw: Any = config
+    for key in path:
+        if not isinstance(raw, dict):
+            return default
+        raw = raw.get(key)
+    if raw is None:
+        return default
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, str):
+        return raw.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(raw)
 
 
 def project_name(config: dict[str, Any], ctx: PullRequestContext) -> str:
@@ -576,6 +715,20 @@ def write_step_summary(summary: dict[str, Any]) -> None:
         return
     high_risk_paths = summary.get("high_risk_paths") or []
     high_risk_text = "\n".join(f"  - `{item}`" for item in high_risk_paths) if high_risk_paths else "  - none"
+    instruction_surface_paths = summary.get("instruction_surface_paths") or []
+    instruction_surface_text = (
+        "\n".join(f"  - `{item}`" for item in instruction_surface_paths) if instruction_surface_paths else "  - none"
+    )
+    suspicious_instruction_findings = summary.get("suspicious_instruction_findings") or []
+    suspicious_instruction_text = (
+        "\n".join(
+            f"  - `{item.get('path', 'unknown')}`: `{item.get('reason', 'unknown')}`"
+            for item in suspicious_instruction_findings
+            if isinstance(item, dict)
+        )
+        if suspicious_instruction_findings
+        else "  - none"
+    )
     changed_paths = summary.get("changed_paths") or []
     changed_paths_text = "\n".join(f"  - `{item}`" for item in changed_paths) if changed_paths else "  - none"
 
@@ -596,6 +749,10 @@ def write_step_summary(summary: dict[str, Any]) -> None:
         changed_paths_text,
         "- High-risk paths:",
         high_risk_text,
+        "- Instruction-surface paths:",
+        instruction_surface_text,
+        "- Suspicious added instruction findings:",
+        suspicious_instruction_text,
         f"- Linked intent: `{'yes' if summary['linked_intent'] else 'no'}`",
         f"- Accepted for PR: `{'yes' if summary['accepted_for_pr'] else 'no'}`",
         f"- Missing external context sections: {format_list(summary.get('missing_external_context_sections') or [])}",
@@ -674,7 +831,7 @@ def build_high_risk_comment(config: dict[str, Any], ctx: PullRequestContext) -> 
     summary = scalar_config(
         config,
         ("high_risk", "description"),
-        "workflows, dependencies, auth/security, install scripts, public APIs, schemas, command behavior, or runtime behavior",
+        "workflows, dependencies, auth/security, install scripts, public APIs, schemas, AI instruction surfaces, suspicious prompt-injection-like documentation, command behavior, or runtime behavior",
     )
     return "\n".join(
         [
@@ -723,6 +880,19 @@ def validate_policy(config: dict[str, Any]) -> None:
         raise GateError("policy.trivial must be a mapping")
     if not isinstance(config.get("high_risk_path_globs", []), list):
         raise GateError("policy.high_risk_path_globs must be a list")
+    instruction_surface = config.get("instruction_surface", {})
+    if instruction_surface and not isinstance(instruction_surface, dict):
+        raise GateError("policy.instruction_surface must be a mapping")
+    if isinstance(instruction_surface, dict) and not isinstance(instruction_surface.get("path_globs", []), list):
+        raise GateError("policy.instruction_surface.path_globs must be a list")
+    prompt_injection = config.get("prompt_injection", {})
+    if prompt_injection and not isinstance(prompt_injection, dict):
+        raise GateError("policy.prompt_injection must be a mapping")
+    if isinstance(prompt_injection, dict):
+        if not isinstance(prompt_injection.get("text_path_globs", []), list):
+            raise GateError("policy.prompt_injection.text_path_globs must be a list")
+        if not isinstance(prompt_injection.get("suspicious_added_patterns", []), list):
+            raise GateError("policy.prompt_injection.suspicious_added_patterns must be a list")
 
 
 def determine_verdict(
@@ -746,6 +916,7 @@ def determine_verdict(
     max_changed_lines = int(trivial_config.get("max_changed_lines", 30))
     allowed_path_globs = [str(item) for item in trivial_config.get("allowed_path_globs", [])]
     high_risk_globs = [str(item) for item in config.get("high_risk_path_globs", [])]
+    instruction_surface_globs = instruction_surface_path_globs(config)
     accept_patterns = list_config(config, ("linked_intent", "accept_patterns"), [])
     required_sections = list_config(config, ("external_context", "required_sections"), [])
     no_code_section = scalar_config(config, ("external_context", "no_code_section"), "No-code alternative")
@@ -760,7 +931,13 @@ def determine_verdict(
 
     changed_lines = sum(item.additions + item.deletions for item in files)
     changed_paths = [item.filename for item in files]
-    high_risk_paths = sorted(path for path in changed_paths if matching_patterns(path, high_risk_globs))
+    configured_high_risk_paths = sorted(path for path in changed_paths if matching_patterns(path, high_risk_globs))
+    instruction_surface_paths = sorted(
+        path for path in changed_paths if matching_patterns(path, instruction_surface_globs)
+    )
+    suspicious_instruction_findings = suspicious_added_instruction_findings(config, files)
+    suspicious_instruction_paths = sorted({finding["path"] for finding in suspicious_instruction_findings})
+    high_risk_paths = sorted(set(configured_high_risk_paths + instruction_surface_paths + suspicious_instruction_paths))
     all_paths_allowed = all(any(path_matches(path, pattern) for pattern in allowed_path_globs) for path in changed_paths)
     is_trivial = bool(changed_paths) and changed_lines <= max_changed_lines and all_paths_allowed and not high_risk_paths
     linked = has_linked_intent(ctx.body, accept_patterns)
@@ -788,6 +965,9 @@ def determine_verdict(
         "changed_lines": changed_lines,
         "changed_paths": changed_paths,
         "high_risk_paths": high_risk_paths,
+        "configured_high_risk_paths": configured_high_risk_paths,
+        "instruction_surface_paths": instruction_surface_paths,
+        "suspicious_instruction_findings": suspicious_instruction_findings,
         "linked_intent": linked,
         "accepted_for_pr": accepted_for_pr,
         "is_trivial": is_trivial,
@@ -828,7 +1008,7 @@ def determine_verdict(
         return (
             Verdict(
                 name="high-risk",
-                reason=f"External PR touches configured high-risk {project} paths.",
+                reason=f"External PR touches high-risk {project} paths or AI instruction surfaces.",
                 next_step="Maintainer should review intent/risk or add maintainer override.",
                 label=high_risk_label,
                 should_comment=True,

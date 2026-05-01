@@ -35,6 +35,7 @@ Never weaken these without an explicit design decision:
 - `templates/pull-request-template-sections.md` - required PR body sections for external contributors.
 - `examples/*.pr-intake-gate.yml` - reference policies copied from real repos and lightly normalized.
 - `schemas/pr-intake-gate.schema.json` - documented schema for editors and future validators.
+- `docs/PROMPT_INJECTION_GUARDRAILS.md` - research notes for docs and AI instruction-surface intake risks.
 - `scripts/render_repo_policy.py` - render a starter policy into a target repo.
 - `scripts/install_labels.py` - create/update labels from local policy.
 - `scripts/audit_repos.py` - inspect local repos for gate rollout status.
@@ -72,7 +73,8 @@ Work in the target repo, not here, except when improving shared tooling.
    - set `project.name`;
    - make `bot_comment.marker` unique;
    - keep trivial paths narrow;
-   - mark workflows, dependencies, runtime code, governance, product canon, auth/security, migrations, and deployment config as high-risk;
+   - mark workflows, dependencies, runtime code, governance, product canon, auth/security, migrations, deployment config, and AI instruction surfaces as high-risk;
+   - configure `instruction_surface.path_globs` for files agents may read as instructions or operating context;
    - add project-specific intent patterns: issues, discussions, ADRs, research notes, goals, reports, eval specs.
 6. Bootstrap labels:
    ```bash
@@ -108,6 +110,7 @@ Before changing `actions/pr-intake-gate/pr_intake_gate.py`:
 6. If behavior changes, update:
    - `README.md`
    - `docs/POLICY.md`
+   - `docs/PROMPT_INJECTION_GUARDRAILS.md` when instruction-surface or prompt-injection behavior changes
    - `docs/ROLLOUT.md`
    - `schemas/pr-intake-gate.schema.json`
    - relevant `examples/*.pr-intake-gate.yml`
@@ -140,7 +143,7 @@ The current gate order is intentional:
 1. maintainer override label;
 2. trusted author by permission;
 3. trusted author by association fallback only if permission is unavailable;
-4. high-risk external path failure;
+4. high-risk external path, instruction-surface, or suspicious prompt-injection-like addition failure;
 5. trivial external pass;
 6. accepted-for-pr pass for non-high-risk external PRs;
 7. missing no-code alternative failure;

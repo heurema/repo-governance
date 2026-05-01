@@ -10,7 +10,7 @@ trivial:
     - 'docs/**/*.md'
 
 high_risk:
-  description: 'workflows, dependency manifests, install scripts, runtime code, public APIs, auth/security, migrations, deployment config, and project governance files'
+  description: 'workflows, dependency manifests, install scripts, runtime code, public APIs, auth/security, migrations, deployment config, AI instruction surfaces, prompt-injection-like documentation, and project governance files'
 
 high_risk_path_globs:
   - '.github/**'
@@ -44,6 +44,40 @@ high_risk_path_globs:
   - '**/security/**'
   - '**/crypto/**'
   - '**/migrations/**'
+
+instruction_surface:
+  description: 'files that AI agents, coding assistants, or repository automation may read as instructions or operating context'
+  path_globs:
+    - 'README.md'
+    - 'README*.md'
+    - '**/README.md'
+    - 'AGENTS.md'
+    - '**/AGENTS.md'
+    - 'CLAUDE.md'
+    - '**/CLAUDE.md'
+    - 'GEMINI.md'
+    - '**/GEMINI.md'
+    - 'SKILL.md'
+    - '**/SKILL.md'
+    - '.github/PULL_REQUEST_TEMPLATE.md'
+    - '.github/pull_request_template.md'
+    - '.github/pull_request_template/**'
+    - '.github/ISSUE_TEMPLATE/**'
+    - '.github/copilot-instructions.md'
+    - '.github/pr-intake-gate.yml'
+
+prompt_injection:
+  enabled: true
+  description: 'deterministic guardrail for obvious prompt-injection-like additions in external PRs; this is not a complete security scanner'
+  text_path_globs:
+    - '*.md'
+    - '**/*.md'
+    - '*.mdx'
+    - '**/*.mdx'
+    - '*.txt'
+    - '**/*.txt'
+    - '.github/**'
+    - 'docs/**'
 
 trusted_authors:
   permissions:

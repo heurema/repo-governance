@@ -32,7 +32,7 @@ jobs:
     steps:
       - name: Check Codex review threads
         # Pin this action to a protected tag or exact commit SHA in mature repos.
-        uses: heurema/repo-governance/actions/codex-review-gate@v0.2.0
+        uses: heurema/repo-governance/actions/codex-review-gate@v0.3.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           review-author-logins: chatgpt-codex-connector

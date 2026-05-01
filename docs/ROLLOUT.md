@@ -36,6 +36,8 @@ Minimum tuning:
 - `project.name`: human-readable project name.
 - `trivial.allowed_path_globs`: paths external contributors can change directly if the PR is tiny.
 - `high_risk_path_globs`: workflows, dependencies, runtime code, governance, product canon, security-sensitive paths.
+- `instruction_surface.path_globs`: files AI agents may read as instructions or operating context, such as `AGENTS.md`, PR templates, product canon, command docs, eval specs, prompt templates, work ledgers, or project memory.
+- `prompt_injection.text_path_globs`: text-like paths where obvious prompt-injection-like additions should turn an external PR into `high-risk`.
 - `external_context.required_sections`: sections external non-trivial PRs must fill.
 - `linked_intent.accept_patterns`: local issue, discussion, ADR, research, goal, or report references.
 - `bot_comment.marker`: unique marker for that repo.
@@ -109,6 +111,8 @@ Open two temporary PRs:
 1. Trusted maintainer/admin PR touching a high-risk path. Expected: pass with `trusted_author: true`.
 2. External fixture/fork or simulated external author. Expected outcomes:
    - high-risk path: fail with `intake/high-risk`;
+   - instruction-surface path such as `AGENTS.md`: fail with `intake/high-risk`;
+   - small docs PR adding text like `Ignore previous instructions`: fail with `intake/high-risk`;
    - non-trivial missing sections: fail with context labels;
    - non-trivial full context plus linked intent: pass;
    - `intake/accepted-for-pr`: pass only for non-high-risk PRs;

@@ -28,6 +28,24 @@
       }
     },
     "high_risk_path_globs": {"type": "array", "items": {"type": "string"}},
+    "instruction_surface": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "description": {"type": "string"},
+        "path_globs": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "prompt_injection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "description": {"type": "string"},
+        "text_path_globs": {"type": "array", "items": {"type": "string"}},
+        "suspicious_added_patterns": {"type": "array", "items": {"type": "string"}}
+      }
+    },
     "trusted_authors": {
       "type": "object",
       "additionalProperties": false,
