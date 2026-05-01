@@ -1,0 +1,39 @@
+name: Codex Review Gate
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+      - ready_for_review
+  pull_request_review:
+    types:
+      - submitted
+      - edited
+      - dismissed
+  pull_request_review_comment:
+    types:
+      - created
+      - edited
+      - deleted
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  codex-review-gate:
+    name: codex-review-gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check Codex review threads
+        # Pin this action to a protected tag or exact commit SHA in mature repos.
+        uses: heurema/repo-governance/actions/codex-review-gate@v0.2.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          review-author-logins: chatgpt-codex-connector
+          ignore-outdated: 'true'

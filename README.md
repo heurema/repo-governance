@@ -6,6 +6,8 @@ Reusable repository governance tooling for Heúrema projects.
 
 The first tool is **PR Intake Gate**: a deterministic GitHub Action that lets trusted maintainers move fast while requiring stronger intake checks for outside contributors.
 
+The second tool is **Codex Review Gate**: a read-only GitHub Action that fails when active Codex Review inline threads are unresolved, so teams do not need to remember to inspect automated review conversations manually.
+
 ## What PR Intake Gate does
 
 For each pull request it decides whether ordinary review can proceed:
@@ -93,6 +95,20 @@ jobs:
 
 For stricter supply-chain control, replace `@v0.1.0` with a commit SHA after testing.
 
+## Codex Review Gate workflow
+
+To make unresolved Codex Review conversations visible as a required check, add `.github/workflows/codex-review-gate.yml` from `templates/workflows/codex-review-gate.yml`.
+
+The check fails when an active unresolved review thread has a comment from `chatgpt-codex-connector`. It ignores outdated threads by default and does not write labels or comments.
+
+After the workflow has run once on the default branch, require status check:
+
+```text
+codex-review-gate
+```
+
+In mature repos, pin the action reference to a commit SHA.
+
 ## Policy example
 
 Use `templates/pr-intake-gate.yml` as the generic starter.
@@ -131,10 +147,12 @@ python3 scripts/audit_repos.py --root /Users/vi/personal/heurema --format csv > 
 
 ```bash
 python3 tests/test_pr_intake_gate.py
+python3 tests/test_codex_review_gate.py
 ```
 
 ## Docs
 
-- `docs/POLICY.md` - policy reference and decision order.
+- `docs/POLICY.md` - PR Intake Gate policy reference and decision order.
+- `docs/CODEX_REVIEW_GATE.md` - Codex Review Gate behavior and rollout notes.
 - `docs/ROLLOUT.md` - step-by-step rollout guide for target repositories.
 - `AGENTS.md` - detailed operating instructions for coding agents.

@@ -22,4 +22,6 @@ jobs:
           persist-credentials: false
 
       - name: Run tests
-        run: python3 tests/test_pr_intake_gate.py
+        run: |
+          python3 tests/test_pr_intake_gate.py
+          python3 tests/test_codex_review_gate.py
