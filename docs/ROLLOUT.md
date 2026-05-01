@@ -21,9 +21,9 @@ python3 /path/to/repo-governance/scripts/render_repo_policy.py \
   --output .github/pr-intake-gate.yml
 cp /path/to/repo-governance/templates/workflows/pr-intake-gate.yml \
   .github/workflows/pr-intake-gate.yml
-cp /path/to/repo-governance/templates/workflows/codex-review-gate.yml \
-  .github/workflows/codex-review-gate.yml
 ```
+
+`pr-intake-gate` runs Codex Review Gate by default. Copy `templates/workflows/codex-review-gate.yml` only when the target repo intentionally wants a separate `codex-review-gate` status context.
 
 Append `templates/pull-request-template-sections.md` to the repo's PR template, or merge equivalent sections into the existing template.
 
@@ -91,14 +91,16 @@ Expected high-risk external result: exit `1`, verdict `high-risk`.
 After the workflows have run at least once on the default branch, require status checks:
 
 - `pr-intake-gate`
-- `codex-review-gate`
+- the repo's normal CI/docs checks
 
 Recommended default branch protection:
 
 - require branches to be up to date before merging;
-- require `pr-intake-gate`, `codex-review-gate`, and the repo's normal CI/docs checks;
+- require `pr-intake-gate` and the repo's normal CI/docs checks;
 - include administrators for public/core repos;
 - block force-pushes and branch deletion.
+
+Require `codex-review-gate` separately only if the standalone workflow was added intentionally.
 
 ## 7. Live test both paths
 
@@ -114,10 +116,10 @@ Open two temporary PRs:
 
 ## 8. Live test Codex Review Gate
 
-Before requiring `codex-review-gate`, open temporary PRs or use an existing test PR:
+Before relying on the bundled `pr-intake-gate` Codex Review behavior, open temporary PRs or use an existing test PR:
 
-1. PR with no Codex Review threads. Expected: `codex-review-gate` passes.
-2. PR with an active unresolved inline Codex Review thread. Expected: `codex-review-gate` fails and the step summary links to the thread.
+1. PR with no Codex Review threads. Expected: `pr-intake-gate` passes its Codex Review phase.
+2. PR with an active unresolved inline Codex Review thread. Expected: `pr-intake-gate` fails and the step summary links to the thread.
 3. Resolve the Codex thread. Expected: branch protection conversation resolution unblocks the PR; rerun this check if GitHub did not trigger it automatically.
 4. Push a change that makes the Codex thread outdated. Expected: the check passes by default.
-5. PR with unresolved non-Codex review thread. Expected: `codex-review-gate` passes, while branch protection conversation resolution may still block merge.
+5. PR with unresolved non-Codex review thread. Expected: the Codex Review phase passes, while branch protection conversation resolution may still block merge.

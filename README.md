@@ -4,9 +4,9 @@
 
 Reusable repository governance tooling for Heúrema projects.
 
-The first tool is **PR Intake Gate**: a deterministic GitHub Action that lets trusted maintainers move fast while requiring stronger intake checks for outside contributors.
+The first tool is **PR Intake Gate**: a deterministic GitHub Action that lets trusted maintainers move fast while requiring stronger intake checks for outside contributors. It also runs the read-only Codex Review Gate by default, so one required `pr-intake-gate` check can block unresolved Codex Review threads.
 
-The second tool is **Codex Review Gate**: a read-only GitHub Action that fails when active Codex Review inline threads are unresolved, so teams do not need to remember to inspect automated review conversations manually.
+The second tool is **Codex Review Gate**: a standalone read-only GitHub Action that fails when active Codex Review inline threads are unresolved, for repos that want a separate named check.
 
 ## What PR Intake Gate does
 
@@ -87,17 +87,17 @@ jobs:
           persist-credentials: false
 
       - name: Run PR intake gate
-        uses: heurema/repo-governance/actions/pr-intake-gate@v0.1.0
+        uses: heurema/repo-governance/actions/pr-intake-gate@v0.2.0
         with:
           policy-path: .github/pr-intake-gate.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-For stricter supply-chain control, replace `@v0.1.0` with a commit SHA after testing.
+For stricter supply-chain control, replace `@v0.2.0` with a commit SHA after testing. Existing repositories pinned to an older SHA must update that SHA to receive newer central gate behavior.
 
 ## Codex Review Gate workflow
 
-To make unresolved Codex Review conversations visible as a required check, add `.github/workflows/codex-review-gate.yml` from `templates/workflows/codex-review-gate.yml`.
+`actions/pr-intake-gate` runs Codex Review Gate by default. To make unresolved Codex Review conversations visible as a separate required check, add `.github/workflows/codex-review-gate.yml` from `templates/workflows/codex-review-gate.yml`.
 
 The check fails when an active unresolved review thread has a comment from `chatgpt-codex-connector`. It ignores outdated threads by default and does not write labels or comments.
 
