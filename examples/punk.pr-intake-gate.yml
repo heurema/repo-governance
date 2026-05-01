@@ -2,7 +2,7 @@ project:
   name: 'Punk'
 
 high_risk:
-  description: 'workflows, scripts, core crates, product truth, work ledger, research, eval specs, public narrative, and site/brand surfaces'
+  description: 'workflows, scripts, core crates, product truth, work ledger, research, eval specs, AI instruction surfaces, prompt-injection-like documentation, public narrative, and site/brand surfaces'
 
 trivial:
   max_changed_lines: 30
@@ -34,6 +34,47 @@ high_risk_path_globs:
   - 'site/**'
   - 'brand/**'
   - 'work/**'
+
+instruction_surface:
+  description: 'Punk files that AI agents may read as instructions, product truth, contracts, eval specs, or work context'
+  path_globs:
+    - 'README.md'
+    - 'AGENTS.md'
+    - '**/AGENTS.md'
+    - 'CLAUDE.md'
+    - '**/CLAUDE.md'
+    - 'GEMINI.md'
+    - '**/GEMINI.md'
+    - '.github/PULL_REQUEST_TEMPLATE.md'
+    - '.github/pull_request_template.md'
+    - '.github/pull_request_template/**'
+    - '.github/ISSUE_TEMPLATE/**'
+    - '.github/pr-intake-gate.yml'
+    - 'docs/product/**'
+    - 'docs/adr/**'
+    - 'evals/**'
+    - 'flows/**'
+    - 'knowledge/**'
+    - 'work/**'
+    - 'examples/**'
+
+prompt_injection:
+  enabled: true
+  description: 'detect obvious prompt-injection-like additions in external PRs before ordinary review'
+  text_path_globs:
+    - '*.md'
+    - '**/*.md'
+    - '*.mdx'
+    - '**/*.mdx'
+    - '*.txt'
+    - '**/*.txt'
+    - '.github/**'
+    - 'docs/**'
+    - 'evals/**'
+    - 'flows/**'
+    - 'knowledge/**'
+    - 'work/**'
+    - 'examples/**'
 
 trusted_authors:
   permissions:

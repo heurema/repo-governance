@@ -2,7 +2,7 @@ project:
   name: 'GoalRail'
 
 high_risk:
-  description: 'workflows, contributor governance, product canon, ops docs, ADRs, research, GoalRail work overlays, apps, scripts, tooling, dependency files, deployments, migrations, auth, security, crypto, and runtime behavior'
+  description: 'workflows, contributor governance, product canon, ops docs, ADRs, research, GoalRail work overlays, AI instruction surfaces, prompt-injection-like documentation, apps, scripts, tooling, dependency files, deployments, migrations, auth, security, crypto, and runtime behavior'
 
 trivial:
   max_changed_lines: 30
@@ -47,6 +47,43 @@ high_risk_path_globs:
   - '**/security/**'
   - '**/crypto/**'
   - '**/migrations/**'
+
+instruction_surface:
+  description: 'Goalrail docs and metadata that AI agents may read as instructions, product canon, operating truth, or PR governance context'
+  path_globs:
+    - 'README.md'
+    - 'README.ru.md'
+    - 'AGENTS.md'
+    - '**/AGENTS.md'
+    - 'CLAUDE.md'
+    - '**/CLAUDE.md'
+    - 'GEMINI.md'
+    - '**/GEMINI.md'
+    - '.github/PULL_REQUEST_TEMPLATE.md'
+    - '.github/pull_request_template.md'
+    - '.github/pull_request_template/**'
+    - '.github/ISSUE_TEMPLATE/**'
+    - '.github/pr-intake-gate.yml'
+    - 'docs/INDEX.md'
+    - 'docs/product/**'
+    - 'docs/ops/**'
+    - 'docs/adr/**'
+    - 'docs/research/**'
+    - '.goalrail/**'
+
+prompt_injection:
+  enabled: true
+  description: 'detect obvious prompt-injection-like additions in external PRs before ordinary review'
+  text_path_globs:
+    - '*.md'
+    - '**/*.md'
+    - '*.mdx'
+    - '**/*.mdx'
+    - '*.txt'
+    - '**/*.txt'
+    - '.github/**'
+    - 'docs/**'
+    - '.goalrail/**'
 
 trusted_authors:
   permissions:

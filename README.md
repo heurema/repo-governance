@@ -13,7 +13,7 @@ The second tool is **Codex Review Gate**: a standalone read-only GitHub Action t
 For each pull request it decides whether ordinary review can proceed:
 
 - trusted repo authors with `admin`, `maintain`, or `write` permission pass automatically;
-- external PRs touching high-risk paths fail until a maintainer handles them;
+- external PRs touching high-risk paths, AI instruction surfaces, or suspicious prompt-injection-like additions fail until a maintainer handles them;
 - tiny docs-only/trivial external PRs can pass directly;
 - non-trivial external PRs must explain the problem, timing, existing options, alternatives, no-code option, why code is needed, and linked intent;
 - maintainers can use `intake/accepted-for-pr` for non-high-risk external PRs;
@@ -51,6 +51,8 @@ Minimum required tuning:
 - `project.name`
 - `trivial.allowed_path_globs`
 - `high_risk_path_globs`
+- `instruction_surface.path_globs`
+- `prompt_injection.text_path_globs`
 - `external_context.required_sections`
 - `linked_intent.accept_patterns`
 - `bot_comment.marker`
@@ -87,13 +89,13 @@ jobs:
           persist-credentials: false
 
       - name: Run PR intake gate
-        uses: heurema/repo-governance/actions/pr-intake-gate@v0.2.0
+        uses: heurema/repo-governance/actions/pr-intake-gate@v0.3.0
         with:
           policy-path: .github/pr-intake-gate.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-For stricter supply-chain control, replace `@v0.2.0` with a commit SHA after testing. Existing repositories pinned to an older SHA must update that SHA to receive newer central gate behavior.
+For stricter supply-chain control, replace `@v0.3.0` with a commit SHA after testing. Existing repositories pinned to an older SHA must update that SHA to receive newer central gate behavior.
 
 ## Codex Review Gate workflow
 
@@ -153,6 +155,7 @@ python3 tests/test_codex_review_gate.py
 ## Docs
 
 - `docs/POLICY.md` - PR Intake Gate policy reference and decision order.
+- `docs/PROMPT_INJECTION_GUARDRAILS.md` - research-backed prompt-injection guardrails for docs and AI instruction surfaces.
 - `docs/CODEX_REVIEW_GATE.md` - Codex Review Gate behavior and rollout notes.
 - `docs/ROLLOUT.md` - step-by-step rollout guide for target repositories.
 - `AGENTS.md` - detailed operating instructions for coding agents.
