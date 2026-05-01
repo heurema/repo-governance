@@ -27,15 +27,19 @@ Never weaken these without an explicit design decision:
 
 - `actions/pr-intake-gate/action.yml` - composite GitHub Action wrapper.
 - `actions/pr-intake-gate/pr_intake_gate.py` - deterministic engine, stdlib only.
+- `actions/codex-review-gate/action.yml` - composite GitHub Action wrapper for unresolved Codex Review threads.
+- `actions/codex-review-gate/codex_review_gate.py` - read-only Codex Review thread gate, stdlib only.
 - `templates/pr-intake-gate.yml` - generic local policy starter.
 - `templates/workflows/pr-intake-gate.yml` - target repo workflow wrapper.
+- `templates/workflows/codex-review-gate.yml` - target repo workflow wrapper for Codex Review thread enforcement.
 - `templates/pull-request-template-sections.md` - required PR body sections for external contributors.
 - `examples/*.pr-intake-gate.yml` - reference policies copied from real repos and lightly normalized.
 - `schemas/pr-intake-gate.schema.json` - documented schema for editors and future validators.
 - `scripts/render_repo_policy.py` - render a starter policy into a target repo.
 - `scripts/install_labels.py` - create/update labels from local policy.
 - `scripts/audit_repos.py` - inspect local repos for gate rollout status.
-- `tests/test_pr_intake_gate.py` - fixture-backed engine tests.
+- `tests/test_pr_intake_gate.py` - fixture-backed PR Intake Gate tests.
+- `tests/test_codex_review_gate.py` - fixture-backed Codex Review Gate tests.
 
 ## How to add PR Intake Gate to another repo
 
@@ -99,6 +103,7 @@ Before changing `actions/pr-intake-gate/pr_intake_gate.py`:
 5. Run:
    ```bash
    python3 tests/test_pr_intake_gate.py
+   python3 tests/test_codex_review_gate.py
    ```
 6. If behavior changes, update:
    - `README.md`
