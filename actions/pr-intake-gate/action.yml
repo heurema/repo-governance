@@ -14,6 +14,18 @@ inputs:
     description: Run without writing labels or comments.
     required: false
     default: 'false'
+  codex-review-gate:
+    description: Run the read-only Codex Review Gate after PR intake.
+    required: false
+    default: 'true'
+  codex-review-author-logins:
+    description: Comma-separated GitHub logins whose unresolved review threads should block.
+    required: false
+    default: 'chatgpt-codex-connector'
+  codex-review-ignore-outdated:
+    description: Whether to ignore outdated Codex Review threads.
+    required: false
+    default: 'true'
 
 runs:
   using: composite
@@ -23,5 +35,28 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         PR_INTAKE_GATE_DRY_RUN: ${{ inputs.dry-run }}
+        CODEX_REVIEW_GATE_ENABLED: ${{ inputs.codex-review-gate }}
+        CODEX_REVIEW_GATE_AUTHOR_LOGINS: ${{ inputs.codex-review-author-logins }}
+        CODEX_REVIEW_GATE_IGNORE_OUTDATED: ${{ inputs.codex-review-ignore-outdated }}
       run: |
+        set +e
         python3 "$GITHUB_ACTION_PATH/pr_intake_gate.py" --policy "${{ inputs.policy-path }}"
+        intake_status=$?
+
+        codex_status=0
+        case "${CODEX_REVIEW_GATE_ENABLED}" in
+          1|true|TRUE|yes|YES|on|ON)
+            python3 "$GITHUB_ACTION_PATH/../codex-review-gate/codex_review_gate.py" \
+              --review-author-logins "${CODEX_REVIEW_GATE_AUTHOR_LOGINS}" \
+              --ignore-outdated "${CODEX_REVIEW_GATE_IGNORE_OUTDATED}"
+            codex_status=$?
+            ;;
+          *)
+            echo "Codex Review Gate disabled for this PR Intake Gate run."
+            ;;
+        esac
+
+        if [ "$intake_status" -ne 0 ]; then
+          exit "$intake_status"
+        fi
+        exit "$codex_status"

@@ -30,7 +30,8 @@ jobs:
           persist-credentials: false
 
       - name: Run PR intake gate
-        uses: heurema/repo-governance/actions/pr-intake-gate@v0.1.0
+        # Pin this action to a protected tag or exact commit SHA in mature repos.
+        uses: heurema/repo-governance/actions/pr-intake-gate@v0.2.0
         with:
           policy-path: .github/pr-intake-gate.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}

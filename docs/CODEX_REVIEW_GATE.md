@@ -8,6 +8,8 @@ It is meant to complement GitHub branch protection conversation resolution:
 - this gate makes Codex Review backlog visible as a named required check;
 - the step summary lists the unresolved Codex Review thread URLs.
 
+`actions/pr-intake-gate` runs this gate by default after intake checks. Use the standalone action only when a repository needs a separate `codex-review-gate` status context.
+
 ## Security model
 
 The action is designed for trusted workflow contexts such as `pull_request_target`.
@@ -34,7 +36,24 @@ Unresolved threads from other reviewers are ignored by default.
 
 The author list is configurable with `review-author-logins`.
 
-## Target workflow
+## Bundled PR Intake Gate mode
+
+Existing repositories can usually keep one required status context:
+
+```text
+pr-intake-gate
+```
+
+In that mode, update the existing `actions/pr-intake-gate` reference to a release or commit that includes Codex Review Gate. Repositories pinned to an older commit SHA will keep running the older code until their workflow reference is updated.
+
+The bundled mode can be disabled explicitly:
+
+```yaml
+with:
+  codex-review-gate: 'false'
+```
+
+## Standalone target workflow
 
 Copy `templates/workflows/codex-review-gate.yml` into the consuming repository.
 After the workflow has run once on the default branch, require this status check in branch protection:
