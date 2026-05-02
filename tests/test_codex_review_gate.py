@@ -21,6 +21,7 @@ sys.modules["codex_review_gate"] = codex_review_gate
 spec.loader.exec_module(codex_review_gate)
 
 blocking_findings = codex_review_gate.blocking_findings
+current_review_completion = codex_review_gate.current_review_completion
 extract_priority = codex_review_gate.extract_priority
 extract_title = codex_review_gate.extract_title
 fetch_review_threads = codex_review_gate.fetch_review_threads
@@ -61,11 +62,44 @@ def thread(
     }
 
 
+def review_state(
+    *,
+    head_sha: str = "head-sha",
+    reviews: list[dict[str, object]] | None = None,
+    reactions: list[dict[str, object]] | None = None,
+    updated_at: str = "2026-05-01T00:00:00Z",
+) -> dict[str, object]:
+    return {
+        "head_sha": head_sha,
+        "updated_at": updated_at,
+        "reviews": reviews or [],
+        "reactions": reactions or [],
+    }
+
+
+def codex_review(*, commit_id: str = "head-sha", state: str = "COMMENTED") -> dict[str, object]:
+    return {
+        "user": {"login": f"{CODEX}[bot]"},
+        "state": state,
+        "commit_id": commit_id,
+        "submitted_at": "2026-05-01T00:02:00Z",
+    }
+
+
+def codex_reaction(*, created_at: str = "2026-05-01T00:02:00Z") -> dict[str, object]:
+    return {
+        "user": {"login": f"{CODEX}[bot]"},
+        "content": "+1",
+        "created_at": created_at,
+    }
+
+
 def write_event(path: Path) -> None:
     event = {
         "repository": {"full_name": "heurema/example"},
         "pull_request": {
             "number": 123,
+            "updated_at": "2026-05-01T00:00:00Z",
             "base": {"sha": "base-sha"},
             "head": {"sha": "head-sha"},
         },
@@ -81,6 +115,9 @@ def run_case(
     *,
     author_logins: str | None = None,
     ignore_outdated: str | None = None,
+    require_current_review: str | None = None,
+    wait_seconds: str | None = None,
+    review_state: dict[str, object] | None = None,
 ) -> tuple[dict[str, object], str, str]:
     with tempfile.TemporaryDirectory(prefix=f"codex-review-{name}-") as tmp_raw:
         tmp = Path(tmp_raw)
@@ -100,6 +137,12 @@ def run_case(
             env["CODEX_REVIEW_GATE_AUTHOR_LOGINS"] = author_logins
         if ignore_outdated is not None:
             env["CODEX_REVIEW_GATE_IGNORE_OUTDATED"] = ignore_outdated
+        if require_current_review is not None:
+            env["CODEX_REVIEW_GATE_REQUIRE_CURRENT_REVIEW"] = require_current_review
+        if wait_seconds is not None:
+            env["CODEX_REVIEW_GATE_WAIT_SECONDS"] = wait_seconds
+        if review_state is not None:
+            env["CODEX_REVIEW_GATE_REVIEW_STATE_JSON"] = json.dumps(review_state)
 
         result = subprocess.run(
             [sys.executable, str(ENGINE_PATH)],
@@ -239,6 +282,62 @@ def main() -> int:
     empty, _, _ = run_case("no_threads_passes", 0, "pass", [])
     assert empty["unresolved_codex_threads"] == 0
 
+    missing_current, missing_summary, _ = run_case(
+        "current_review_required_missing_fails",
+        1,
+        "fail",
+        [],
+        require_current_review="true",
+        wait_seconds="0",
+        review_state=review_state(),
+    )
+    assert missing_current["current_codex_review"]["is_complete"] is False
+    assert "has not completed" in missing_summary
+
+    current_review, _, _ = run_case(
+        "current_review_on_head_passes",
+        0,
+        "pass",
+        [],
+        require_current_review="true",
+        wait_seconds="0",
+        review_state=review_state(reviews=[codex_review(commit_id="head-sha")]),
+    )
+    assert current_review["current_codex_review"]["is_complete"] is True
+
+    stale_review, _, _ = run_case(
+        "stale_review_on_old_head_fails",
+        1,
+        "fail",
+        [],
+        require_current_review="true",
+        wait_seconds="0",
+        review_state=review_state(reviews=[codex_review(commit_id="old-sha")]),
+    )
+    assert stale_review["current_codex_review"]["is_complete"] is False
+
+    clean_reaction, _, _ = run_case(
+        "clean_reaction_after_current_update_passes",
+        0,
+        "pass",
+        [],
+        require_current_review="true",
+        wait_seconds="0",
+        review_state=review_state(reactions=[codex_reaction(created_at="2026-05-01T00:02:00Z")]),
+    )
+    assert clean_reaction["current_codex_review"]["is_complete"] is True
+
+    stale_reaction, _, _ = run_case(
+        "stale_reaction_before_current_update_fails",
+        1,
+        "fail",
+        [],
+        require_current_review="true",
+        wait_seconds="0",
+        review_state=review_state(reactions=[codex_reaction(created_at="2026-04-30T23:59:59Z")]),
+    )
+    assert stale_reaction["current_codex_review"]["is_complete"] is False
+
     unresolved, summary, _ = run_case(
         "unresolved_codex_thread_fails",
         1,
@@ -248,6 +347,17 @@ def main() -> int:
     assert unresolved["unresolved_codex_threads"] == 1
     assert "Pin mutable action" in summary
     assert "https://example.test/thread-1" in summary
+
+    unresolved_without_completion, _, _ = run_case(
+        "unresolved_thread_fails_without_waiting_for_current_review",
+        1,
+        "fail",
+        [thread(body="**<sub><sub>![P2 Badge](x)</sub></sub>  Fix visible issue**")],
+        require_current_review="true",
+        wait_seconds="0",
+        review_state=review_state(),
+    )
+    assert unresolved_without_completion["current_codex_review"] is None
 
     resolved, _, _ = run_case(
         "resolved_codex_thread_passes",
