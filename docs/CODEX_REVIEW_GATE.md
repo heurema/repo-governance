@@ -10,6 +10,11 @@ It is meant to complement GitHub branch protection conversation resolution:
 
 `actions/pr-intake-gate` runs this gate by default after intake checks. Use the standalone action only when a repository needs a separate `codex-review-gate` status context.
 
+For repositories that use asynchronous Codex reviews as a merge signal, enable
+`require-current-review`. In that mode the gate waits for a Codex result on the
+current pull-request head before it can pass. This closes the timing window where
+ordinary checks go green and a Codex review comment lands after merge.
+
 ## Security model
 
 The action is designed for trusted workflow contexts such as `pull_request_target`.
@@ -18,7 +23,7 @@ Rules:
 
 1. Do not checkout PR head code before this gate runs.
 2. Do not import, install, execute, or shell-evaluate PR head code.
-3. Read review-thread metadata through GitHub GraphQL API.
+3. Read review-thread metadata through GitHub GraphQL API, and review/reaction metadata through GitHub REST API when current-review completion is required.
 4. Keep the action read-only: it does not write labels, comments, or repository state.
 5. In consuming repositories, pin this action to a protected tag or exact commit SHA.
 
@@ -35,6 +40,15 @@ Outdated unresolved threads pass by default because they refer to stale diffs.
 Unresolved threads from other reviewers are ignored by default.
 
 The author list is configurable with `review-author-logins`.
+
+When `require-current-review` is enabled, the action also requires one of these
+current-head completion signals before passing:
+
+- a pull-request review by a configured Codex author on the current head SHA;
+- a clean-review `+1` reaction by a configured Codex author after the current PR
+  update timestamp.
+
+If neither signal appears before `wait-seconds` expires, the check fails.
 
 ## Bundled PR Intake Gate mode
 
@@ -68,6 +82,18 @@ Use a pinned action reference in mature repositories:
 uses: heurema/repo-governance/actions/codex-review-gate@<commit-sha>
 ```
 
+Required workflow permissions:
+
+```yaml
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+```
+
+`issues: read` is required when `require-current-review` uses a clean Codex
+`+1` issue reaction as the completion signal.
+
 ## Inputs
 
 | Input | Default | Meaning |
@@ -75,6 +101,9 @@ uses: heurema/repo-governance/actions/codex-review-gate@<commit-sha>
 | `github-token` | empty | Token used for GitHub GraphQL reads. Use `${{ secrets.GITHUB_TOKEN }}` in GitHub Actions. |
 | `review-author-logins` | `chatgpt-codex-connector` | Comma-separated author logins whose unresolved threads should block. |
 | `ignore-outdated` | `true` | When `true`, outdated unresolved threads do not block. |
+| `require-current-review` | `false` | When `true`, the gate must see a Codex result for the current PR head before passing. |
+| `wait-seconds` | `0` | Seconds to wait for the current Codex result before failing. |
+| `poll-interval-seconds` | `10` | Seconds between polling attempts while waiting. |
 
 ## Local fixture test
 
@@ -101,3 +130,5 @@ Use temporary PRs in the consuming repo before requiring the check:
 3. Resolve the Codex thread: branch protection conversation resolution unblocks the PR; rerun this check if GitHub did not trigger it automatically.
 4. Outdated Codex thread after new push: check passes.
 5. Unresolved non-Codex thread: this gate passes; branch protection conversation resolution may still block merge.
+6. `require-current-review: true` and no current Codex result: check waits, then fails.
+7. `require-current-review: true` and Codex returns clean `+1` for the current PR update: check passes.

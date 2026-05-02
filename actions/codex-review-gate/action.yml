@@ -14,6 +14,18 @@ inputs:
     description: Ignore outdated review threads.
     required: false
     default: 'true'
+  require-current-review:
+    description: Require a Codex Review result for the current pull request head before passing.
+    required: false
+    default: 'false'
+  wait-seconds:
+    description: Seconds to wait for the current Codex Review result before failing.
+    required: false
+    default: '0'
+  poll-interval-seconds:
+    description: Seconds between polling attempts while waiting for the current Codex Review result.
+    required: false
+    default: '10'
 
 runs:
   using: composite
@@ -24,5 +36,8 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         CODEX_REVIEW_GATE_AUTHOR_LOGINS: ${{ inputs.review-author-logins }}
         CODEX_REVIEW_GATE_IGNORE_OUTDATED: ${{ inputs.ignore-outdated }}
+        CODEX_REVIEW_GATE_REQUIRE_CURRENT_REVIEW: ${{ inputs.require-current-review }}
+        CODEX_REVIEW_GATE_WAIT_SECONDS: ${{ inputs.wait-seconds }}
+        CODEX_REVIEW_GATE_POLL_INTERVAL_SECONDS: ${{ inputs.poll-interval-seconds }}
       run: |
         python3 "$GITHUB_ACTION_PATH/codex_review_gate.py"
