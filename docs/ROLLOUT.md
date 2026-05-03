@@ -23,7 +23,7 @@ cp /path/to/repo-governance/templates/workflows/pr-intake-gate.yml \
   .github/workflows/pr-intake-gate.yml
 ```
 
-`pr-intake-gate` runs Codex Review Gate by default. Copy `templates/workflows/codex-review-gate.yml` when the target repo intentionally wants a separate `codex-review-gate` status context or needs to block merges until asynchronous Codex Review has completed for the current PR head.
+`pr-intake-gate` runs Codex Review Gate by default. Copy `templates/workflows/codex-review-gate.yml` when the target repo intentionally wants a separate `codex-review-gate` status context. Do not require a current Codex Review artifact unless the target repo has a reliable external trigger that submits one for every PR head.
 
 Append `templates/pull-request-template-sections.md` to the repo's PR template, or merge equivalent sections into the existing template.
 
@@ -132,5 +132,6 @@ Before relying on the bundled `pr-intake-gate` Codex Review behavior, open tempo
 3. Resolve the Codex thread. Expected: branch protection conversation resolution unblocks the PR; rerun this check if GitHub did not trigger it automatically.
 4. Push a change that makes the Codex thread outdated. Expected: the check passes by default.
 5. PR with unresolved non-Codex review thread. Expected: the Codex Review phase passes, while branch protection conversation resolution may still block merge.
-6. PR with standalone `codex-review-gate` and `require-current-review: true`, before Codex has reviewed the current head. Expected: the check waits, then fails instead of going green.
-7. PR with standalone `codex-review-gate` and a clean Codex `+1` reaction after the current PR update. Expected: the check passes.
+6. PR with standalone `codex-review-gate` and recommended `require-current-review: false`, before Codex has reviewed the current head. Expected: the check passes when no unresolved Codex threads exist.
+7. Optional strict-mode PR with standalone `codex-review-gate` and `require-current-review: true`, before Codex has reviewed the current head. Expected: the check waits, then fails instead of going green.
+8. Optional strict-mode PR with standalone `codex-review-gate` and a clean Codex `+1` reaction after the current PR update. Expected: the check passes.
