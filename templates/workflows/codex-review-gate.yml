@@ -32,13 +32,12 @@ jobs:
 
     steps:
       - name: Check Codex review threads
-        # Replace with a protected tag or exact commit SHA that includes
-        # require-current-review, wait-seconds, and poll-interval-seconds.
-        uses: heurema/repo-governance/actions/codex-review-gate@<commit-sha-with-current-review-gate>
+        # Replace with a protected tag or exact commit SHA.
+        uses: heurema/repo-governance/actions/codex-review-gate@<commit-sha>
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           review-author-logins: chatgpt-codex-connector
           ignore-outdated: 'true'
-          require-current-review: 'true'
-          wait-seconds: '240'
+          require-current-review: 'false'
+          wait-seconds: '0'
           poll-interval-seconds: '15'

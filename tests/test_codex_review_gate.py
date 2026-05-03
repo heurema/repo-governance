@@ -13,6 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ENGINE_PATH = ROOT / "actions" / "codex-review-gate" / "codex_review_gate.py"
+STANDALONE_TEMPLATE_PATH = ROOT / "templates" / "workflows" / "codex-review-gate.yml"
 
 spec = importlib.util.spec_from_file_location("codex_review_gate", ENGINE_PATH)
 assert spec and spec.loader
@@ -275,9 +276,20 @@ def paginated_thread_comments_are_author_matched() -> None:
     print("ok - paginated thread comments are author matched")
 
 
+def standalone_template_does_not_require_current_review() -> None:
+    template = STANDALONE_TEMPLATE_PATH.read_text(encoding="utf-8")
+
+    assert "require-current-review: 'false'" in template
+    assert "wait-seconds: '0'" in template
+    assert "require-current-review: 'true'" not in template
+    assert "wait-seconds: '240'" not in template
+    print("ok - standalone template does not require current review")
+
+
 def main() -> int:
     helper_semantics()
     paginated_thread_comments_are_author_matched()
+    standalone_template_does_not_require_current_review()
 
     empty, _, _ = run_case("no_threads_passes", 0, "pass", [])
     assert empty["unresolved_codex_threads"] == 0

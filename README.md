@@ -103,9 +103,12 @@ For stricter supply-chain control, replace `@v0.3.0` with a commit SHA after tes
 
 The check fails when an active unresolved review thread has a comment from `chatgpt-codex-connector`. It ignores outdated threads by default and does not write labels or comments.
 
-For asynchronous Codex reviews, use the standalone workflow with
-`require-current-review: 'true'`. That mode waits for a Codex result on the
-current PR head before passing, so a PR cannot go green before Codex finishes.
+Do not enable `require-current-review` unless the consuming repository has a
+reliable external trigger that always submits a Codex review artifact for every
+PR head. Without that guarantee, current-review mode can become a global merge
+blocker outside repository control. The recommended standalone workflow keeps
+`require-current-review: 'false'` and blocks only actual unresolved Codex review
+threads.
 
 After the workflow has run once on the default branch, require status check:
 
@@ -113,8 +116,8 @@ After the workflow has run once on the default branch, require status check:
 codex-review-gate
 ```
 
-The standalone workflow grants `issues: read` because strict current-review mode
-uses a clean Codex `+1` reaction as one completion signal.
+The standalone workflow grants `issues: read` so repositories can opt into
+current-review mode later without widening permissions in a separate change.
 
 In mature repos, pin the action reference to a commit SHA.
 
