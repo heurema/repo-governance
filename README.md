@@ -69,10 +69,6 @@ name: PR Intake Gate
 on:
   pull_request_target:
     types: [opened, edited, reopened, synchronize, labeled, unlabeled, ready_for_review]
-  pull_request_review:
-    types: [submitted, edited, dismissed]
-  pull_request_review_comment:
-    types: [created, edited, deleted]
 
 permissions:
   contents: read
@@ -110,7 +106,9 @@ For stricter supply-chain control, replace `@v0.3.0` with a commit SHA after tes
 
 After Codex reports findings, fixing code is not always enough. Resolve the linked GitHub review conversations, or push a new commit that makes stale diff threads outdated. Repositories with GitHub branch protection conversation resolution enabled will also block merge until those conversations are resolved.
 
-To make unresolved Codex Review conversations visible as a separate required check, add `.github/workflows/codex-review-gate.yml` from `templates/workflows/codex-review-gate.yml`.
+Keep `pr-intake-gate` on `pull_request_target` events. It writes labels and comments, so running it from `pull_request_review` or `pull_request_review_comment` can give fork and Dependabot PRs a read-only token and turn review activity into a false gate failure.
+
+To make unresolved Codex Review conversations visible after review activity, add the read-only standalone `.github/workflows/codex-review-gate.yml` from `templates/workflows/codex-review-gate.yml` and require that status context separately.
 
 The check fails when an active unresolved review thread has a comment from `chatgpt-codex-connector`. It ignores outdated threads by default and does not write labels or comments.
 

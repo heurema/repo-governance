@@ -23,7 +23,7 @@ cp /path/to/repo-governance/templates/workflows/pr-intake-gate.yml \
   .github/workflows/pr-intake-gate.yml
 ```
 
-`pr-intake-gate` runs Codex Review Gate by default and waits for a Codex Review completion signal on the current PR head before passing. Copy `templates/workflows/codex-review-gate.yml` when the target repo intentionally wants a separate `codex-review-gate` status context. Do not require a current Codex Review artifact in standalone mode unless the target repo has a reliable external trigger that submits one for every PR head.
+`pr-intake-gate` runs Codex Review Gate by default and waits for a Codex Review completion signal on the current PR head before passing. Keep it on `pull_request_target` events because it writes labels and comments. Copy `templates/workflows/codex-review-gate.yml` when the target repo intentionally wants a separate read-only `codex-review-gate` status context that can rerun on review activity. Do not require a current Codex Review artifact in standalone mode unless the target repo has a reliable external trigger that submits one for every PR head.
 
 Append `templates/pull-request-template-sections.md` to the repo's PR template, or merge equivalent sections into the existing template.
 
