@@ -305,6 +305,7 @@ def main() -> int:
     )
     assert missing_current["current_codex_review"]["is_complete"] is False
     assert "has not completed" in missing_summary
+    assert "cannot merge before Codex Review finishes" in missing_summary
 
     current_review, _, _ = run_case(
         "current_review_on_head_passes",
@@ -359,6 +360,7 @@ def main() -> int:
     assert unresolved["unresolved_codex_threads"] == 1
     assert "Pin mutable action" in summary
     assert "https://example.test/thread-1" in summary
+    assert "resolve each linked GitHub review conversation" in summary
 
     unresolved_without_completion, _, _ = run_case(
         "unresolved_thread_fails_without_waiting_for_current_review",
