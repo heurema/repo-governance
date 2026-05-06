@@ -8,12 +8,12 @@ It is meant to complement GitHub branch protection conversation resolution:
 - this gate makes Codex Review backlog visible as a named required check;
 - the step summary lists the unresolved Codex Review thread URLs.
 
-`actions/pr-intake-gate` runs this gate by default after intake checks. Use the standalone action only when a repository needs a separate `codex-review-gate` status context.
+`actions/pr-intake-gate` runs this gate by default after intake checks. In bundled mode, `pr-intake-gate` requires a Codex Review completion signal for the current PR head before passing. Use the standalone action only when a repository needs a separate `codex-review-gate` status context.
 
-The recommended mode blocks actual unresolved Codex review threads without
-requiring a fresh Codex Review artifact on every PR head. Enable
-`require-current-review` only in repositories that have a reliable external
-trigger which always submits a Codex review artifact for every PR head.
+The recommended standalone mode blocks actual unresolved Codex review threads
+without requiring a fresh Codex Review artifact on every PR head. Enable
+standalone `require-current-review` only in repositories that have a reliable
+external trigger which always submits a Codex review artifact for every PR head.
 
 ## Security model
 
@@ -53,6 +53,12 @@ use this mode as a required branch-protection check unless the Codex Review
 producer is guaranteed to run for every PR head; otherwise the gate can block all
 merges even when there are no unresolved Codex threads.
 
+When active Codex findings exist, the check summary links the blocking review
+threads. After applying fixes, resolve each linked GitHub review conversation or
+push a new commit that makes stale diff threads outdated. GitHub branch
+protection with required conversation resolution may still block merge until the
+conversation is resolved.
+
 ## Bundled PR Intake Gate mode
 
 Existing repositories can usually keep one required status context:
@@ -69,6 +75,18 @@ The bundled mode can be disabled explicitly:
 with:
   codex-review-gate: 'false'
 ```
+
+The bundled current-review wait can be tuned or disabled explicitly:
+
+```yaml
+with:
+  codex-review-require-current-review: 'true'
+  codex-review-wait-seconds: '480'
+  codex-review-poll-interval-seconds: '10'
+```
+
+Set `codex-review-require-current-review: 'false'` only when the repository does
+not have a reliable Codex Review producer for every PR head.
 
 ## Standalone target workflow
 
@@ -107,6 +125,10 @@ permissions:
 | `require-current-review` | `false` | When `true`, the gate must see a Codex result for the current PR head before passing. |
 | `wait-seconds` | `0` | Seconds to wait for the current Codex result before failing. |
 | `poll-interval-seconds` | `10` | Seconds between polling attempts while waiting. |
+
+Bundled `pr-intake-gate` defaults are stricter than standalone defaults:
+`codex-review-require-current-review: 'true'` and
+`codex-review-wait-seconds: '480'`.
 
 ## Local fixture test
 

@@ -29,11 +29,11 @@ inputs:
   codex-review-require-current-review:
     description: Require a Codex Review result for the current pull request head before passing.
     required: false
-    default: 'false'
+    default: 'true'
   codex-review-wait-seconds:
     description: Seconds to wait for the current Codex Review result before failing.
     required: false
-    default: '0'
+    default: '480'
   codex-review-poll-interval-seconds:
     description: Seconds between polling attempts while waiting for the current Codex Review result.
     required: false
@@ -59,11 +59,19 @@ runs:
         intake_status=$?
 
         codex_status=0
+        effective_require_current_review="${CODEX_REVIEW_GATE_REQUIRE_CURRENT_REVIEW}"
+        if [ "$intake_status" -ne 0 ]; then
+          effective_require_current_review=false
+        fi
+
         case "${CODEX_REVIEW_GATE_ENABLED}" in
           1|true|TRUE|yes|YES|on|ON)
             python3 "$GITHUB_ACTION_PATH/../codex-review-gate/codex_review_gate.py" \
               --review-author-logins "${CODEX_REVIEW_GATE_AUTHOR_LOGINS}" \
-              --ignore-outdated "${CODEX_REVIEW_GATE_IGNORE_OUTDATED}"
+              --ignore-outdated "${CODEX_REVIEW_GATE_IGNORE_OUTDATED}" \
+              --require-current-review "${effective_require_current_review}" \
+              --wait-seconds "${CODEX_REVIEW_GATE_WAIT_SECONDS}" \
+              --poll-interval-seconds "${CODEX_REVIEW_GATE_POLL_INTERVAL_SECONDS}"
             codex_status=$?
             ;;
           *)

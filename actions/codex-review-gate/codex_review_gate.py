@@ -626,11 +626,15 @@ def write_summary(
         if completion is not None and not completion.is_complete:
             lines.append("Codex Review has not completed for the current head yet.")
             lines.append("")
+            lines.append("This check stays non-green so the pull request cannot merge before Codex Review finishes.")
+            lines.append("")
             lines.append(f"Reason: {completion.reason}")
         else:
             lines.append("No active unresolved Codex Review threads were found.")
     else:
         lines.append("Active unresolved Codex Review threads must be resolved before merge.")
+        lines.append("")
+        lines.append("After applying fixes, resolve each linked GitHub review conversation or push a new commit that makes stale diff threads outdated.")
         lines.append("")
         for finding in findings:
             location = finding.path or "unknown path"

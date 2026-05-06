@@ -23,7 +23,7 @@ cp /path/to/repo-governance/templates/workflows/pr-intake-gate.yml \
   .github/workflows/pr-intake-gate.yml
 ```
 
-`pr-intake-gate` runs Codex Review Gate by default. Copy `templates/workflows/codex-review-gate.yml` when the target repo intentionally wants a separate `codex-review-gate` status context. Do not require a current Codex Review artifact unless the target repo has a reliable external trigger that submits one for every PR head.
+`pr-intake-gate` runs Codex Review Gate by default and waits for a Codex Review completion signal on the current PR head before passing. Copy `templates/workflows/codex-review-gate.yml` when the target repo intentionally wants a separate `codex-review-gate` status context. Do not require a current Codex Review artifact in standalone mode unless the target repo has a reliable external trigger that submits one for every PR head.
 
 Append `templates/pull-request-template-sections.md` to the repo's PR template, or merge equivalent sections into the existing template.
 
@@ -127,7 +127,7 @@ Open two temporary PRs:
 
 Before relying on the bundled `pr-intake-gate` Codex Review behavior, open temporary PRs or use an existing test PR:
 
-1. PR with no Codex Review threads. Expected: `pr-intake-gate` passes its Codex Review phase.
+1. PR with no Codex Review threads before Codex has finished current-head review. Expected: `pr-intake-gate` stays pending until the wait expires, then fails instead of going green.
 2. PR with an active unresolved inline Codex Review thread. Expected: `pr-intake-gate` fails and the step summary links to the thread.
 3. Resolve the Codex thread. Expected: branch protection conversation resolution unblocks the PR; rerun this check if GitHub did not trigger it automatically.
 4. Push a change that makes the Codex thread outdated. Expected: the check passes by default.
