@@ -230,21 +230,21 @@ def action_wrapper_runs_strict_codex_review_gate() -> None:
     print("ok - action wrapper runs strict codex review gate")
 
 
-def workflow_template_reruns_on_codex_review_events() -> None:
+def workflow_template_keeps_intake_on_write_capable_events() -> None:
     workflow = WORKFLOW_TEMPLATE_PATH.read_text(encoding="utf-8")
 
-    assert "pull_request_review:" in workflow
-    assert "pull_request_review_comment:" in workflow
+    assert "pull_request_target:" in workflow
+    assert "pull_request_review:" not in workflow
+    assert "pull_request_review_comment:" not in workflow
     assert "codex-review-require-current-review: 'true'" in workflow
     assert "codex-review-wait-seconds: '480'" in workflow
-    assert "pull_request_review_thread:" not in workflow
-    print("ok - workflow template reruns on codex review events")
+    print("ok - workflow template keeps intake on write capable events")
 
 
 def main() -> int:
     helper_semantics()
     action_wrapper_runs_strict_codex_review_gate()
-    workflow_template_reruns_on_codex_review_events()
+    workflow_template_keeps_intake_on_write_capable_events()
 
     trusted_permission, _ = run_case(
         "trusted_permission_passes_high_risk",

@@ -69,6 +69,12 @@ pr-intake-gate
 
 In that mode, update the existing `actions/pr-intake-gate` reference to a release or commit that includes Codex Review Gate. Repositories pinned to an older commit SHA will keep running the older code until their workflow reference is updated.
 
+Keep bundled `pr-intake-gate` on `pull_request_target` events. It writes labels
+and comments, so `pull_request_review` or `pull_request_review_comment` can run
+with a read-only token for fork and Dependabot PRs and fail after review
+activity. Use the standalone read-only `codex-review-gate` workflow for
+review-event reruns.
+
 The bundled mode can be disabled explicitly:
 
 ```yaml
