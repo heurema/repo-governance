@@ -23,7 +23,7 @@ cp /path/to/repo-governance/templates/workflows/pr-intake-gate.yml \
   .github/workflows/pr-intake-gate.yml
 ```
 
-`pr-intake-gate` runs Codex Review Gate by default in advisory mode. It reports unresolved Codex findings without waiting for a current-head Codex Review result and without failing the intake check. Keep it on `pull_request_target` events because it writes labels and comments. Copy `templates/workflows/codex-review-gate.yml` when the target repo intentionally wants a separate read-only `codex-review-gate` status context that can rerun on review activity. Do not enable blocking or current-review mode unless the target repo has a reliable external trigger that submits one for every PR head.
+`pr-intake-gate` runs Codex Review Gate by default and waits for a Codex Review completion signal on the current PR head before passing. Keep it on `pull_request_target` events because it writes labels and comments. Copy `templates/workflows/codex-review-gate.yml` when the target repo intentionally wants a separate read-only `codex-review-gate` status context that can rerun on review activity. Do not require a current Codex Review artifact in standalone mode unless the target repo has a reliable external trigger that submits one for every PR head.
 
 Append `templates/pull-request-template-sections.md` to the repo's PR template, or merge equivalent sections into the existing template.
 
@@ -102,7 +102,7 @@ Recommended default branch protection:
 - include administrators for public/core repos;
 - block force-pushes and branch deletion.
 
-Require `codex-review-gate` separately only if the standalone workflow was added intentionally and the repo wants Codex Review to participate in branch protection. Keep the standalone workflow advisory with `blocking: 'false'` when the check is only for visibility. Add the required context after the workflow has landed on the default branch; otherwise the rollout PR can block itself on a check that does not exist on the base branch yet.
+Require `codex-review-gate` separately only if the standalone workflow was added intentionally. Add the required context after the workflow has landed on the default branch; otherwise the rollout PR can block itself on a check that does not exist on the base branch yet.
 
 The standalone Codex Review Gate workflow needs `contents: read`,
 `pull-requests: read`, and `issues: read` permissions. The `issues: read`
@@ -127,12 +127,11 @@ Open two temporary PRs:
 
 Before relying on the bundled `pr-intake-gate` Codex Review behavior, open temporary PRs or use an existing test PR:
 
-1. PR with no Codex Review threads before Codex has finished current-head review. Expected: `pr-intake-gate` passes without waiting for Codex.
-2. PR with an active unresolved inline Codex Review thread. Expected: `pr-intake-gate` passes and the step summary links to the thread.
-3. Resolve the Codex thread. Expected: branch protection conversation resolution, if enabled, unblocks the PR; rerun this check if GitHub did not trigger it automatically.
-4. Push a change that makes the Codex thread outdated. Expected: the Codex Review phase reports no active finding.
+1. PR with no Codex Review threads before Codex has finished current-head review. Expected: `pr-intake-gate` stays pending until the wait expires, then fails instead of going green.
+2. PR with an active unresolved inline Codex Review thread. Expected: `pr-intake-gate` fails and the step summary links to the thread.
+3. Resolve the Codex thread. Expected: branch protection conversation resolution unblocks the PR; rerun this check if GitHub did not trigger it automatically.
+4. Push a change that makes the Codex thread outdated. Expected: the check passes by default.
 5. PR with unresolved non-Codex review thread. Expected: the Codex Review phase passes, while branch protection conversation resolution may still block merge.
-6. PR with standalone `codex-review-gate`, `blocking: false`, and `require-current-review: false`, before Codex has reviewed the current head. Expected: the check passes without waiting.
-7. PR with standalone `codex-review-gate`, `blocking: false`, and unresolved Codex threads. Expected: the check writes the summary and passes.
-8. Optional strict-mode PR with standalone `codex-review-gate`, `blocking: true`, and `require-current-review: true`, before Codex has reviewed the current head. Expected: the check waits, then fails instead of going green.
-9. Optional strict-mode PR with standalone `codex-review-gate`, `blocking: true`, and a clean Codex `+1` reaction after the current PR update. Expected: the check passes.
+6. PR with standalone `codex-review-gate` and recommended `require-current-review: false`, before Codex has reviewed the current head. Expected: the check passes when no unresolved Codex threads exist.
+7. Optional strict-mode PR with standalone `codex-review-gate` and `require-current-review: true`, before Codex has reviewed the current head. Expected: the check waits, then fails instead of going green.
+8. Optional strict-mode PR with standalone `codex-review-gate` and a clean Codex `+1` reaction after the current PR update. Expected: the check passes.

@@ -13,7 +13,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ENGINE_PATH = ROOT / "actions" / "codex-review-gate" / "codex_review_gate.py"
-ACTION_PATH = ROOT / "actions" / "codex-review-gate" / "action.yml"
 STANDALONE_TEMPLATE_PATH = ROOT / "templates" / "workflows" / "codex-review-gate.yml"
 
 spec = importlib.util.spec_from_file_location("codex_review_gate", ENGINE_PATH)
@@ -280,7 +279,6 @@ def paginated_thread_comments_are_author_matched() -> None:
 def standalone_template_does_not_require_current_review() -> None:
     template = STANDALONE_TEMPLATE_PATH.read_text(encoding="utf-8")
 
-    assert "blocking: 'false'" in template
     assert "require-current-review: 'false'" in template
     assert "wait-seconds: '0'" in template
     assert "require-current-review: 'true'" not in template
@@ -288,22 +286,10 @@ def standalone_template_does_not_require_current_review() -> None:
     print("ok - standalone template does not require current review")
 
 
-def standalone_action_supports_advisory_mode() -> None:
-    action = ACTION_PATH.read_text(encoding="utf-8")
-
-    assert "  blocking:" in action
-    assert "default: 'true'" in action
-    assert "CODEX_REVIEW_GATE_BLOCKING" in action
-    assert 'case "${CODEX_REVIEW_GATE_BLOCKING}" in' in action
-    assert "continuing because this check is advisory" in action
-    print("ok - standalone action supports advisory mode")
-
-
 def main() -> int:
     helper_semantics()
     paginated_thread_comments_are_author_matched()
     standalone_template_does_not_require_current_review()
-    standalone_action_supports_advisory_mode()
 
     empty, _, _ = run_case("no_threads_passes", 0, "pass", [])
     assert empty["unresolved_codex_threads"] == 0
