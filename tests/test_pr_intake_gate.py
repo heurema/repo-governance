@@ -206,8 +206,12 @@ def helper_semantics() -> None:
     print("ok - helper semantics")
 
 
-def action_wrapper_runs_strict_codex_review_gate() -> None:
+def action_wrapper_runs_advisory_codex_review_gate() -> None:
     action = ACTION_PATH.read_text(encoding="utf-8")
+    blocking = re.search(
+        r"  codex-review-blocking:\n(?P<body>(?:    .+\n)+)",
+        action,
+    )
     require_current = re.search(
         r"  codex-review-require-current-review:\n(?P<body>(?:    .+\n)+)",
         action,
@@ -217,17 +221,22 @@ def action_wrapper_runs_strict_codex_review_gate() -> None:
         action,
     )
 
+    assert blocking
+    assert "default: 'false'" in blocking.group("body")
     assert require_current
-    assert "default: 'true'" in require_current.group("body")
+    assert "default: 'false'" in require_current.group("body")
     assert wait_seconds
-    assert "default: '480'" in wait_seconds.group("body")
+    assert "default: '0'" in wait_seconds.group("body")
     assert 'effective_require_current_review="${CODEX_REVIEW_GATE_REQUIRE_CURRENT_REVIEW}"' in action
     assert 'if [ "$intake_status" -ne 0 ]; then' in action
     assert "effective_require_current_review=false" in action
     assert '--require-current-review "${effective_require_current_review}"' in action
     assert '--wait-seconds "${CODEX_REVIEW_GATE_WAIT_SECONDS}"' in action
     assert '--poll-interval-seconds "${CODEX_REVIEW_GATE_POLL_INTERVAL_SECONDS}"' in action
-    print("ok - action wrapper runs strict codex review gate")
+    assert 'case "${CODEX_REVIEW_GATE_BLOCKING}" in' in action
+    assert "continuing because bundled mode is advisory" in action
+    assert "exit 0" in action
+    print("ok - action wrapper runs advisory codex review gate")
 
 
 def workflow_template_keeps_intake_on_write_capable_events() -> None:
@@ -236,14 +245,15 @@ def workflow_template_keeps_intake_on_write_capable_events() -> None:
     assert "pull_request_target:" in workflow
     assert "pull_request_review:" not in workflow
     assert "pull_request_review_comment:" not in workflow
-    assert "codex-review-require-current-review: 'true'" in workflow
-    assert "codex-review-wait-seconds: '480'" in workflow
+    assert "codex-review-blocking: 'false'" in workflow
+    assert "codex-review-require-current-review: 'false'" in workflow
+    assert "codex-review-wait-seconds: '0'" in workflow
     print("ok - workflow template keeps intake on write capable events")
 
 
 def main() -> int:
     helper_semantics()
-    action_wrapper_runs_strict_codex_review_gate()
+    action_wrapper_runs_advisory_codex_review_gate()
     workflow_template_keeps_intake_on_write_capable_events()
 
     trusted_permission, _ = run_case(

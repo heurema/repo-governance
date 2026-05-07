@@ -18,8 +18,12 @@ inputs:
     description: Run the read-only Codex Review Gate after PR intake.
     required: false
     default: 'true'
+  codex-review-blocking:
+    description: Whether Codex Review Gate failures should fail the PR Intake Gate check.
+    required: false
+    default: 'false'
   codex-review-author-logins:
-    description: Comma-separated GitHub logins whose unresolved review threads should block.
+    description: Comma-separated GitHub logins whose unresolved review threads should be reported.
     required: false
     default: 'chatgpt-codex-connector'
   codex-review-ignore-outdated:
@@ -29,11 +33,11 @@ inputs:
   codex-review-require-current-review:
     description: Require a Codex Review result for the current pull request head before passing.
     required: false
-    default: 'true'
+    default: 'false'
   codex-review-wait-seconds:
     description: Seconds to wait for the current Codex Review result before failing.
     required: false
-    default: '480'
+    default: '0'
   codex-review-poll-interval-seconds:
     description: Seconds between polling attempts while waiting for the current Codex Review result.
     required: false
@@ -48,6 +52,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         PR_INTAKE_GATE_DRY_RUN: ${{ inputs.dry-run }}
         CODEX_REVIEW_GATE_ENABLED: ${{ inputs.codex-review-gate }}
+        CODEX_REVIEW_GATE_BLOCKING: ${{ inputs.codex-review-blocking }}
         CODEX_REVIEW_GATE_AUTHOR_LOGINS: ${{ inputs.codex-review-author-logins }}
         CODEX_REVIEW_GATE_IGNORE_OUTDATED: ${{ inputs.codex-review-ignore-outdated }}
         CODEX_REVIEW_GATE_REQUIRE_CURRENT_REVIEW: ${{ inputs.codex-review-require-current-review }}
@@ -82,4 +87,14 @@ runs:
         if [ "$intake_status" -ne 0 ]; then
           exit "$intake_status"
         fi
-        exit "$codex_status"
+
+        case "${CODEX_REVIEW_GATE_BLOCKING}" in
+          1|true|TRUE|yes|YES|on|ON)
+            exit "$codex_status"
+            ;;
+        esac
+
+        if [ "$codex_status" -ne 0 ]; then
+          echo "Codex Review Gate returned status ${codex_status}; continuing because bundled mode is advisory."
+        fi
+        exit 0

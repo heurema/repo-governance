@@ -66,7 +66,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--review-author-logins",
         default=os.environ.get("CODEX_REVIEW_GATE_AUTHOR_LOGINS", ",".join(DEFAULT_REVIEW_AUTHOR_LOGINS)),
-        help="Comma-separated GitHub logins whose unresolved threads should block the gate.",
+        help="Comma-separated GitHub logins whose unresolved threads should be reported.",
     )
     parser.add_argument(
         "--ignore-outdated",
