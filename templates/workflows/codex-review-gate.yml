@@ -36,6 +36,7 @@ jobs:
         uses: heurema/repo-governance/actions/codex-review-gate@<commit-sha>
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          blocking: 'false'
           review-author-logins: chatgpt-codex-connector
           ignore-outdated: 'true'
           require-current-review: 'false'

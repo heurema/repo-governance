@@ -36,6 +36,7 @@ jobs:
         with:
           policy-path: .github/pr-intake-gate.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          codex-review-require-current-review: 'true'
-          codex-review-wait-seconds: '480'
+          codex-review-blocking: 'false'
+          codex-review-require-current-review: 'false'
+          codex-review-wait-seconds: '0'
           codex-review-poll-interval-seconds: '10'

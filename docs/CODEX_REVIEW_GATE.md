@@ -1,19 +1,20 @@
 # Codex Review Gate
 
-Codex Review Gate is a reusable GitHub Action that fails a pull request when active Codex Review inline threads are unresolved.
+Codex Review Gate is a reusable GitHub Action that reports active unresolved Codex Review inline threads. It can run in blocking mode when a repository intentionally wants those threads to fail a status check.
 
 It is meant to complement GitHub branch protection conversation resolution:
 
 - branch protection blocks unresolved review conversations generically;
-- this gate makes Codex Review backlog visible as a named required check;
+- this gate makes Codex Review backlog visible as a named check;
 - the step summary lists the unresolved Codex Review thread URLs.
 
-`actions/pr-intake-gate` runs this gate by default after intake checks. In bundled mode, `pr-intake-gate` requires a Codex Review completion signal for the current PR head before passing. Use the standalone action only when a repository needs a separate `codex-review-gate` status context.
+`actions/pr-intake-gate` runs this gate by default after intake checks. In bundled mode, Codex Review is advisory by default: `pr-intake-gate` does not wait for a current-head Codex Review result and does not fail on Codex findings unless `codex-review-blocking: 'true'` is set. Use the standalone action only when a repository needs a separate `codex-review-gate` status context.
 
-The recommended standalone mode blocks actual unresolved Codex review threads
+The recommended standalone mode reports actual unresolved Codex review threads
 without requiring a fresh Codex Review artifact on every PR head. Enable
-standalone `require-current-review` only in repositories that have a reliable
-external trigger which always submits a Codex review artifact for every PR head.
+standalone `blocking` or `require-current-review` only in repositories that have
+a reliable external trigger which always submits a Codex review artifact for
+every PR head.
 
 ## Security model
 
@@ -27,9 +28,10 @@ Rules:
 4. Keep the action read-only: it does not write labels, comments, or repository state.
 5. In consuming repositories, pin this action to a protected tag or exact commit SHA.
 
-## What blocks
+## What Reports
 
-By default, the action fails when a review thread satisfies all of these:
+The engine returns a failing verdict when a review thread satisfies all of
+these:
 
 - the thread is unresolved;
 - the thread is not outdated;
@@ -53,8 +55,9 @@ use this mode as a required branch-protection check unless the Codex Review
 producer is guaranteed to run for every PR head; otherwise the gate can block all
 merges even when there are no unresolved Codex threads.
 
-When active Codex findings exist, the check summary links the blocking review
-threads. After applying fixes, resolve each linked GitHub review conversation or
+When active Codex findings exist, the check summary links the review threads.
+In advisory mode, the action wrapper still exits successfully after writing that
+summary. After applying fixes, resolve each linked GitHub review conversation or
 push a new commit that makes stale diff threads outdated. GitHub branch
 protection with required conversation resolution may still block merge until the
 conversation is resolved.
@@ -82,22 +85,27 @@ with:
   codex-review-gate: 'false'
 ```
 
-The bundled current-review wait can be tuned or disabled explicitly:
+The bundled current-review wait and blocking behavior can be enabled explicitly:
 
 ```yaml
 with:
+  codex-review-blocking: 'true'
   codex-review-require-current-review: 'true'
   codex-review-wait-seconds: '480'
   codex-review-poll-interval-seconds: '10'
 ```
 
-Set `codex-review-require-current-review: 'false'` only when the repository does
-not have a reliable Codex Review producer for every PR head.
+Keep `codex-review-blocking: 'false'` and
+`codex-review-require-current-review: 'false'` when the repository does not have
+a reliable Codex Review producer for every PR head.
 
 ## Standalone target workflow
 
 Copy `templates/workflows/codex-review-gate.yml` into the consuming repository.
-After the workflow has run once on the default branch, require this status check in branch protection:
+The template keeps the standalone check advisory with `blocking: 'false'`.
+After the workflow has run once on the default branch, require this status check
+in branch protection only if the repository intentionally wants Codex Review to
+block:
 
 ```text
 codex-review-gate
@@ -126,15 +134,17 @@ permissions:
 | Input | Default | Meaning |
 | --- | --- | --- |
 | `github-token` | empty | Token used for GitHub GraphQL reads. Use `${{ secrets.GITHUB_TOKEN }}` in GitHub Actions. |
-| `review-author-logins` | `chatgpt-codex-connector` | Comma-separated author logins whose unresolved threads should block. |
-| `ignore-outdated` | `true` | When `true`, outdated unresolved threads do not block. |
+| `blocking` | `true` | When `true`, action-wrapper failures fail the status check. Set to `false` for advisory reporting. |
+| `review-author-logins` | `chatgpt-codex-connector` | Comma-separated author logins whose unresolved threads should be reported. |
+| `ignore-outdated` | `true` | When `true`, outdated unresolved threads are ignored. |
 | `require-current-review` | `false` | When `true`, the gate must see a Codex result for the current PR head before passing. |
 | `wait-seconds` | `0` | Seconds to wait for the current Codex result before failing. |
 | `poll-interval-seconds` | `10` | Seconds between polling attempts while waiting. |
 
-Bundled `pr-intake-gate` defaults are stricter than standalone defaults:
-`codex-review-require-current-review: 'true'` and
-`codex-review-wait-seconds: '480'`.
+Bundled `pr-intake-gate` defaults are advisory:
+`codex-review-blocking: 'false'`,
+`codex-review-require-current-review: 'false'`, and
+`codex-review-wait-seconds: '0'`.
 
 ## Local fixture test
 
@@ -161,6 +171,7 @@ Use temporary PRs in the consuming repo before requiring the check:
 3. Resolve the Codex thread: branch protection conversation resolution unblocks the PR; rerun this check if GitHub did not trigger it automatically.
 4. Outdated Codex thread after new push: check passes.
 5. Unresolved non-Codex thread: this gate passes; branch protection conversation resolution may still block merge.
-6. Standalone workflow with recommended `require-current-review: false` and no Codex threads: check passes without waiting for an external Codex review artifact.
-7. Optional strict mode with `require-current-review: true` and no current Codex result: check waits, then fails.
-8. Optional strict mode with `require-current-review: true` and Codex returns clean `+1` for the current PR update: check passes.
+6. Standalone workflow with recommended `blocking: false`, `require-current-review: false`, and no Codex threads: check passes without waiting for an external Codex review artifact.
+7. Standalone workflow with recommended `blocking: false` and unresolved Codex threads: check writes the summary and passes.
+8. Optional strict mode with `blocking: true`, `require-current-review: true`, and no current Codex result: check waits, then fails.
+9. Optional strict mode with `blocking: true`, `require-current-review: true`, and Codex returns clean `+1` for the current PR update: check passes.

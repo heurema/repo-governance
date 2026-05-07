@@ -1,13 +1,17 @@
 name: Codex Review Gate
-description: Fail when active Codex Review threads remain unresolved on a pull request.
+description: Report or fail when active Codex Review threads remain unresolved on a pull request.
 
 inputs:
   github-token:
     description: GitHub token used to read PR review threads.
     required: false
     default: ''
+  blocking:
+    description: Whether Codex Review Gate failures should fail this check.
+    required: false
+    default: 'true'
   review-author-logins:
-    description: Comma-separated GitHub logins whose unresolved review threads should block the gate.
+    description: Comma-separated GitHub logins whose unresolved review threads should be reported.
     required: false
     default: chatgpt-codex-connector
   ignore-outdated:
@@ -34,10 +38,24 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        CODEX_REVIEW_GATE_BLOCKING: ${{ inputs.blocking }}
         CODEX_REVIEW_GATE_AUTHOR_LOGINS: ${{ inputs.review-author-logins }}
         CODEX_REVIEW_GATE_IGNORE_OUTDATED: ${{ inputs.ignore-outdated }}
         CODEX_REVIEW_GATE_REQUIRE_CURRENT_REVIEW: ${{ inputs.require-current-review }}
         CODEX_REVIEW_GATE_WAIT_SECONDS: ${{ inputs.wait-seconds }}
         CODEX_REVIEW_GATE_POLL_INTERVAL_SECONDS: ${{ inputs.poll-interval-seconds }}
       run: |
+        set +e
         python3 "$GITHUB_ACTION_PATH/codex_review_gate.py"
+        codex_status=$?
+
+        case "${CODEX_REVIEW_GATE_BLOCKING}" in
+          1|true|TRUE|yes|YES|on|ON)
+            exit "$codex_status"
+            ;;
+        esac
+
+        if [ "$codex_status" -ne 0 ]; then
+          echo "Codex Review Gate returned status ${codex_status}; continuing because this check is advisory."
+        fi
+        exit 0
