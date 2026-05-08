@@ -8,7 +8,7 @@ It is meant to complement GitHub branch protection conversation resolution:
 - this gate makes Codex Review backlog visible as a named required check;
 - the step summary lists the unresolved Codex Review thread URLs.
 
-`actions/pr-intake-gate` runs this gate by default after intake checks. In bundled mode, `pr-intake-gate` requires a Codex Review completion signal for the current PR head before passing. Use the standalone action only when a repository needs a separate `codex-review-gate` status context.
+`actions/pr-intake-gate` runs this gate by default after intake checks. In bundled mode, `pr-intake-gate` blocks active unresolved Codex Review threads without requiring a separate current-head Codex Review completion signal. Use the standalone action when a repository needs a separate `codex-review-gate` status context for review activity.
 
 The recommended standalone mode blocks actual unresolved Codex review threads
 without requiring a fresh Codex Review artifact on every PR head. Enable
@@ -90,7 +90,8 @@ with:
   codex-review-gate: 'false'
 ```
 
-The bundled current-review wait can be tuned or disabled explicitly:
+The bundled current-review wait is disabled by default. Enable it only when the
+repository has a reliable Codex Review producer for every PR head:
 
 ```yaml
 with:
@@ -100,7 +101,7 @@ with:
   codex-review-poll-interval-seconds: '10'
 ```
 
-Set `codex-review-require-current-review: 'false'` only when the repository does
+Keep `codex-review-require-current-review: 'false'` when the repository does
 not have a reliable Codex Review producer for every PR head.
 
 ## Standalone target workflow
@@ -142,9 +143,9 @@ permissions:
 | `resolution-wait-seconds` | `0` | Seconds to wait for unresolved Codex Review threads to clear before failing. |
 | `poll-interval-seconds` | `10` | Seconds between polling attempts while waiting. |
 
-Bundled `pr-intake-gate` defaults are stricter than standalone defaults:
-`codex-review-require-current-review: 'true'` and
-`codex-review-wait-seconds: '480'`. The bundled workflow template also sets
+Bundled `pr-intake-gate` defaults match standalone current-review behavior:
+`codex-review-require-current-review: 'false'` and
+`codex-review-wait-seconds: '0'`. The bundled workflow template also sets
 `codex-review-resolution-wait-seconds: '480'` and raises the job timeout to
 20 minutes so the check can stay pending while resolved threads propagate.
 
