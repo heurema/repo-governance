@@ -216,16 +216,23 @@ def action_wrapper_runs_strict_codex_review_gate() -> None:
         r"  codex-review-wait-seconds:\n(?P<body>(?:    .+\n)+)",
         action,
     )
+    resolution_wait_seconds = re.search(
+        r"  codex-review-resolution-wait-seconds:\n(?P<body>(?:    .+\n)+)",
+        action,
+    )
 
     assert require_current
     assert "default: 'true'" in require_current.group("body")
     assert wait_seconds
     assert "default: '480'" in wait_seconds.group("body")
+    assert resolution_wait_seconds
+    assert "default: '0'" in resolution_wait_seconds.group("body")
     assert 'effective_require_current_review="${CODEX_REVIEW_GATE_REQUIRE_CURRENT_REVIEW}"' in action
     assert 'if [ "$intake_status" -ne 0 ]; then' in action
     assert "effective_require_current_review=false" in action
     assert '--require-current-review "${effective_require_current_review}"' in action
     assert '--wait-seconds "${CODEX_REVIEW_GATE_WAIT_SECONDS}"' in action
+    assert '--resolution-wait-seconds "${CODEX_REVIEW_GATE_RESOLUTION_WAIT_SECONDS}"' in action
     assert '--poll-interval-seconds "${CODEX_REVIEW_GATE_POLL_INTERVAL_SECONDS}"' in action
     print("ok - action wrapper runs strict codex review gate")
 
@@ -236,8 +243,10 @@ def workflow_template_keeps_intake_on_write_capable_events() -> None:
     assert "pull_request_target:" in workflow
     assert "pull_request_review:" not in workflow
     assert "pull_request_review_comment:" not in workflow
+    assert "timeout-minutes: 20" in workflow
     assert "codex-review-require-current-review: 'true'" in workflow
     assert "codex-review-wait-seconds: '480'" in workflow
+    assert "codex-review-resolution-wait-seconds: '480'" in workflow
     print("ok - workflow template keeps intake on write capable events")
 
 
