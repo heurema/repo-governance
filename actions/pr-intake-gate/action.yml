@@ -29,11 +29,11 @@ inputs:
   codex-review-require-current-review:
     description: Require a Codex Review result for the current pull request head before passing.
     required: false
-    default: 'true'
+    default: 'false'
   codex-review-wait-seconds:
     description: Seconds to wait for the current Codex Review result before failing.
     required: false
-    default: '480'
+    default: '0'
   codex-review-resolution-wait-seconds:
     description: Seconds to wait for unresolved Codex Review threads to clear before failing.
     required: false
