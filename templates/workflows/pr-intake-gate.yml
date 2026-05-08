@@ -20,7 +20,7 @@ jobs:
   pr-intake-gate:
     name: pr-intake-gate
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout trusted base code
@@ -38,4 +38,5 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           codex-review-require-current-review: 'true'
           codex-review-wait-seconds: '480'
+          codex-review-resolution-wait-seconds: '480'
           codex-review-poll-interval-seconds: '10'

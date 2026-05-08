@@ -79,7 +79,7 @@ jobs:
   pr-intake-gate:
     name: pr-intake-gate
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout trusted base code
@@ -95,6 +95,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           codex-review-require-current-review: 'true'
           codex-review-wait-seconds: '480'
+          codex-review-resolution-wait-seconds: '480'
           codex-review-poll-interval-seconds: '10'
 ```
 
@@ -105,6 +106,12 @@ For stricter supply-chain control, replace `@v0.3.0` with a commit SHA after tes
 `actions/pr-intake-gate` runs Codex Review Gate by default. In bundled mode, the recommended configuration waits for a Codex Review completion signal on the current PR head before passing. This keeps the required check pending, then failing, instead of briefly going green while Codex Review is still running.
 
 After Codex reports findings, fixing code is not always enough. Resolve the linked GitHub review conversations, or push a new commit that makes stale diff threads outdated. Repositories with GitHub branch protection conversation resolution enabled will also block merge until those conversations are resolved.
+
+GitHub Actions does not trigger a workflow when a review thread is resolved. The
+recommended workflow keeps the gate running for a bounded
+`codex-review-resolution-wait-seconds` window, then polls GitHub until the
+threads are resolved or outdated. After that window expires, a manual rerun or a
+new push is still required.
 
 Keep `pr-intake-gate` on `pull_request_target` events. It writes labels and comments, so running it from `pull_request_review` or `pull_request_review_comment` can give fork and Dependabot PRs a read-only token and turn review activity into a false gate failure.
 

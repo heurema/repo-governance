@@ -23,6 +23,7 @@ spec.loader.exec_module(codex_review_gate)
 
 blocking_findings = codex_review_gate.blocking_findings
 current_review_completion = codex_review_gate.current_review_completion
+evaluate_gate = codex_review_gate.evaluate_gate
 extract_priority = codex_review_gate.extract_priority
 extract_title = codex_review_gate.extract_title
 fetch_review_threads = codex_review_gate.fetch_review_threads
@@ -118,6 +119,7 @@ def run_case(
     ignore_outdated: str | None = None,
     require_current_review: str | None = None,
     wait_seconds: str | None = None,
+    resolution_wait_seconds: str | None = None,
     review_state: dict[str, object] | None = None,
 ) -> tuple[dict[str, object], str, str]:
     with tempfile.TemporaryDirectory(prefix=f"codex-review-{name}-") as tmp_raw:
@@ -142,6 +144,8 @@ def run_case(
             env["CODEX_REVIEW_GATE_REQUIRE_CURRENT_REVIEW"] = require_current_review
         if wait_seconds is not None:
             env["CODEX_REVIEW_GATE_WAIT_SECONDS"] = wait_seconds
+        if resolution_wait_seconds is not None:
+            env["CODEX_REVIEW_GATE_RESOLUTION_WAIT_SECONDS"] = resolution_wait_seconds
         if review_state is not None:
             env["CODEX_REVIEW_GATE_REVIEW_STATE_JSON"] = json.dumps(review_state)
 
@@ -276,11 +280,47 @@ def paginated_thread_comments_are_author_matched() -> None:
     print("ok - paginated thread comments are author matched")
 
 
+def resolution_wait_passes_when_threads_clear() -> None:
+    old_fetch_review_threads = codex_review_gate.fetch_review_threads
+    old_sleep = codex_review_gate.time.sleep
+    calls = 0
+
+    def fake_fetch_review_threads(ctx: PullRequestContext) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        assert ctx.repository == "heurema/example"
+        if calls == 1:
+            return [thread(body="**<sub><sub>![P2 Badge](x)</sub></sub>  Resolve me**")]
+        return [thread(body="**<sub><sub>![P2 Badge](x)</sub></sub>  Resolve me**", resolved=True)]
+
+    try:
+        codex_review_gate.fetch_review_threads = fake_fetch_review_threads
+        codex_review_gate.time.sleep = lambda seconds: None
+        findings, completion = evaluate_gate(
+            PullRequestContext(repository="heurema/example", number=123, head_sha="head-sha"),
+            author_logins={CODEX},
+            ignore_outdated=True,
+            require_current_review=False,
+            wait_seconds=0,
+            resolution_wait_seconds=30,
+            poll_interval_seconds=10,
+        )
+    finally:
+        codex_review_gate.fetch_review_threads = old_fetch_review_threads
+        codex_review_gate.time.sleep = old_sleep
+
+    assert calls == 2
+    assert findings == []
+    assert completion is None
+    print("ok - resolution wait passes when threads clear")
+
+
 def standalone_template_does_not_require_current_review() -> None:
     template = STANDALONE_TEMPLATE_PATH.read_text(encoding="utf-8")
 
     assert "require-current-review: 'false'" in template
     assert "wait-seconds: '0'" in template
+    assert "resolution-wait-seconds: '480'" in template
     assert "require-current-review: 'true'" not in template
     assert "wait-seconds: '240'" not in template
     print("ok - standalone template does not require current review")
@@ -289,6 +329,7 @@ def standalone_template_does_not_require_current_review() -> None:
 def main() -> int:
     helper_semantics()
     paginated_thread_comments_are_author_matched()
+    resolution_wait_passes_when_threads_clear()
     standalone_template_does_not_require_current_review()
 
     empty, _, _ = run_case("no_threads_passes", 0, "pass", [])

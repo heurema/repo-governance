@@ -84,9 +84,14 @@ def parse_args() -> argparse.Namespace:
         help="Seconds to wait for Codex Review completion before failing.",
     )
     parser.add_argument(
+        "--resolution-wait-seconds",
+        default=os.environ.get("CODEX_REVIEW_GATE_RESOLUTION_WAIT_SECONDS", "0"),
+        help="Seconds to wait for unresolved Codex Review threads to clear before failing.",
+    )
+    parser.add_argument(
         "--poll-interval-seconds",
         default=os.environ.get("CODEX_REVIEW_GATE_POLL_INTERVAL_SECONDS", "10"),
-        help="Seconds between Codex Review completion polls.",
+        help="Seconds between Codex Review completion and thread-resolution polls.",
     )
     return parser.parse_args()
 
@@ -678,22 +683,23 @@ def result_payload(
     }
 
 
-def main() -> int:
-    args = parse_args()
-    author_logins = parse_author_logins(str(args.review_author_logins))
-    ignore_outdated = env_flag(str(args.ignore_outdated), default=True)
-    require_current_review = env_flag(str(args.require_current_review), default=False)
-    wait_seconds = parse_non_negative_int(str(args.wait_seconds), field="wait-seconds")
-    poll_interval_seconds = parse_non_negative_int(
-        str(args.poll_interval_seconds),
-        field="poll-interval-seconds",
-    )
-    if require_current_review and wait_seconds > 0 and poll_interval_seconds == 0:
-        raise GateError("poll-interval-seconds must be greater than zero when wait-seconds is greater than zero")
-    event = load_event()
-    ctx = get_pr_context(event)
+def sleep_until_next_poll(deadline: float, poll_interval_seconds: int) -> None:
+    remaining = deadline - time.monotonic()
+    time.sleep(min(poll_interval_seconds, max(0.1, remaining)))
 
-    deadline = time.monotonic() + wait_seconds
+
+def evaluate_gate(
+    ctx: PullRequestContext,
+    *,
+    author_logins: set[str],
+    ignore_outdated: bool,
+    require_current_review: bool,
+    wait_seconds: int,
+    resolution_wait_seconds: int,
+    poll_interval_seconds: int,
+) -> tuple[list[ReviewThreadFinding], ReviewCompletion | None]:
+    current_review_deadline = time.monotonic() + wait_seconds
+    resolution_deadline: float | None = None
     findings: list[ReviewThreadFinding] = []
     completion: ReviewCompletion | None = None
     while True:
@@ -701,7 +707,16 @@ def main() -> int:
         findings = blocking_findings(threads, author_logins=author_logins, ignore_outdated=ignore_outdated)
         if findings:
             completion = None
-            break
+            if resolution_wait_seconds == 0:
+                break
+            if resolution_deadline is None:
+                resolution_deadline = time.monotonic() + resolution_wait_seconds
+            if time.monotonic() >= resolution_deadline:
+                break
+            sleep_until_next_poll(resolution_deadline, poll_interval_seconds)
+            continue
+
+        resolution_deadline = None
 
         if require_current_review:
             review_state = fetch_review_completion_state(ctx)
@@ -711,10 +726,45 @@ def main() -> int:
         else:
             break
 
-        if wait_seconds == 0 or time.monotonic() >= deadline:
+        if wait_seconds == 0 or time.monotonic() >= current_review_deadline:
             break
-        remaining = deadline - time.monotonic()
-        time.sleep(min(poll_interval_seconds, max(0.1, remaining)))
+        sleep_until_next_poll(current_review_deadline, poll_interval_seconds)
+
+    return findings, completion
+
+
+def main() -> int:
+    args = parse_args()
+    author_logins = parse_author_logins(str(args.review_author_logins))
+    ignore_outdated = env_flag(str(args.ignore_outdated), default=True)
+    require_current_review = env_flag(str(args.require_current_review), default=False)
+    wait_seconds = parse_non_negative_int(str(args.wait_seconds), field="wait-seconds")
+    resolution_wait_seconds = parse_non_negative_int(
+        str(args.resolution_wait_seconds),
+        field="resolution-wait-seconds",
+    )
+    poll_interval_seconds = parse_non_negative_int(
+        str(args.poll_interval_seconds),
+        field="poll-interval-seconds",
+    )
+    if wait_seconds > 0 and poll_interval_seconds == 0:
+        raise GateError("poll-interval-seconds must be greater than zero when wait-seconds is greater than zero")
+    if resolution_wait_seconds > 0 and poll_interval_seconds == 0:
+        raise GateError(
+            "poll-interval-seconds must be greater than zero when resolution-wait-seconds is greater than zero"
+        )
+    event = load_event()
+    ctx = get_pr_context(event)
+
+    findings, completion = evaluate_gate(
+        ctx,
+        author_logins=author_logins,
+        ignore_outdated=ignore_outdated,
+        require_current_review=require_current_review,
+        wait_seconds=wait_seconds,
+        resolution_wait_seconds=resolution_wait_seconds,
+        poll_interval_seconds=poll_interval_seconds,
+    )
 
     write_summary(ctx, findings, completion)
     payload = result_payload(ctx, findings, completion)

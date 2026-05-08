@@ -59,6 +59,14 @@ push a new commit that makes stale diff threads outdated. GitHub branch
 protection with required conversation resolution may still block merge until the
 conversation is resolved.
 
+GitHub Actions does not currently expose a workflow trigger for review-thread
+resolution. `pull_request_review_comment` covers created, edited, and deleted
+diff comments, but resolving a review conversation is a thread state change. To
+avoid a stale failed check after a human resolves all Codex threads, set
+`resolution-wait-seconds` so the running check keeps polling review-thread state
+and turns green once the threads are resolved or outdated. If the polling window
+expires first, rerun the check manually or push a new commit.
+
 ## Bundled PR Intake Gate mode
 
 Existing repositories can usually keep one required status context:
@@ -88,6 +96,7 @@ The bundled current-review wait can be tuned or disabled explicitly:
 with:
   codex-review-require-current-review: 'true'
   codex-review-wait-seconds: '480'
+  codex-review-resolution-wait-seconds: '480'
   codex-review-poll-interval-seconds: '10'
 ```
 
@@ -130,11 +139,14 @@ permissions:
 | `ignore-outdated` | `true` | When `true`, outdated unresolved threads do not block. |
 | `require-current-review` | `false` | When `true`, the gate must see a Codex result for the current PR head before passing. |
 | `wait-seconds` | `0` | Seconds to wait for the current Codex result before failing. |
+| `resolution-wait-seconds` | `0` | Seconds to wait for unresolved Codex Review threads to clear before failing. |
 | `poll-interval-seconds` | `10` | Seconds between polling attempts while waiting. |
 
 Bundled `pr-intake-gate` defaults are stricter than standalone defaults:
 `codex-review-require-current-review: 'true'` and
-`codex-review-wait-seconds: '480'`.
+`codex-review-wait-seconds: '480'`. The bundled workflow template also sets
+`codex-review-resolution-wait-seconds: '480'` and raises the job timeout to
+20 minutes so the check can stay pending while resolved threads propagate.
 
 ## Local fixture test
 
@@ -158,7 +170,7 @@ Use temporary PRs in the consuming repo before requiring the check:
 
 1. No Codex threads: check passes.
 2. Unresolved active Codex thread: check fails and prints the thread URL.
-3. Resolve the Codex thread: branch protection conversation resolution unblocks the PR; rerun this check if GitHub did not trigger it automatically.
+3. Resolve the Codex thread while the polling window is still open: branch protection conversation resolution unblocks the PR and the check passes on the next poll.
 4. Outdated Codex thread after new push: check passes.
 5. Unresolved non-Codex thread: this gate passes; branch protection conversation resolution may still block merge.
 6. Standalone workflow with recommended `require-current-review: false` and no Codex threads: check passes without waiting for an external Codex review artifact.

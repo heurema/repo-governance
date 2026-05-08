@@ -23,7 +23,7 @@ cp /path/to/repo-governance/templates/workflows/pr-intake-gate.yml \
   .github/workflows/pr-intake-gate.yml
 ```
 
-`pr-intake-gate` runs Codex Review Gate by default and waits for a Codex Review completion signal on the current PR head before passing. Keep it on `pull_request_target` events because it writes labels and comments. Copy `templates/workflows/codex-review-gate.yml` when the target repo intentionally wants a separate read-only `codex-review-gate` status context that can rerun on review activity. Do not require a current Codex Review artifact in standalone mode unless the target repo has a reliable external trigger that submits one for every PR head.
+`pr-intake-gate` runs Codex Review Gate by default and waits for a Codex Review completion signal on the current PR head before passing. Keep it on `pull_request_target` events because it writes labels and comments. Configure a bounded resolution wait so the same run can turn green after Codex threads are resolved; GitHub Actions does not emit a review-thread-resolution trigger. Copy `templates/workflows/codex-review-gate.yml` when the target repo intentionally wants a separate read-only `codex-review-gate` status context that can rerun on review activity. Do not require a current Codex Review artifact in standalone mode unless the target repo has a reliable external trigger that submits one for every PR head.
 
 Append `templates/pull-request-template-sections.md` to the repo's PR template, or merge equivalent sections into the existing template.
 
@@ -129,7 +129,7 @@ Before relying on the bundled `pr-intake-gate` Codex Review behavior, open tempo
 
 1. PR with no Codex Review threads before Codex has finished current-head review. Expected: `pr-intake-gate` stays pending until the wait expires, then fails instead of going green.
 2. PR with an active unresolved inline Codex Review thread. Expected: `pr-intake-gate` fails and the step summary links to the thread.
-3. Resolve the Codex thread. Expected: branch protection conversation resolution unblocks the PR; rerun this check if GitHub did not trigger it automatically.
+3. Resolve the Codex thread while the configured resolution polling window is still open. Expected: branch protection conversation resolution unblocks the PR and the check passes on the next poll.
 4. Push a change that makes the Codex thread outdated. Expected: the check passes by default.
 5. PR with unresolved non-Codex review thread. Expected: the Codex Review phase passes, while branch protection conversation resolution may still block merge.
 6. PR with standalone `codex-review-gate` and recommended `require-current-review: false`, before Codex has reviewed the current head. Expected: the check passes when no unresolved Codex threads exist.

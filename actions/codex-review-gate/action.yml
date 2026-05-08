@@ -22,8 +22,12 @@ inputs:
     description: Seconds to wait for the current Codex Review result before failing.
     required: false
     default: '0'
+  resolution-wait-seconds:
+    description: Seconds to wait for unresolved Codex Review threads to clear before failing.
+    required: false
+    default: '0'
   poll-interval-seconds:
-    description: Seconds between polling attempts while waiting for the current Codex Review result.
+    description: Seconds between polling attempts while waiting for the current Codex Review result or thread resolution.
     required: false
     default: '10'
 
@@ -38,6 +42,7 @@ runs:
         CODEX_REVIEW_GATE_IGNORE_OUTDATED: ${{ inputs.ignore-outdated }}
         CODEX_REVIEW_GATE_REQUIRE_CURRENT_REVIEW: ${{ inputs.require-current-review }}
         CODEX_REVIEW_GATE_WAIT_SECONDS: ${{ inputs.wait-seconds }}
+        CODEX_REVIEW_GATE_RESOLUTION_WAIT_SECONDS: ${{ inputs.resolution-wait-seconds }}
         CODEX_REVIEW_GATE_POLL_INTERVAL_SECONDS: ${{ inputs.poll-interval-seconds }}
       run: |
         python3 "$GITHUB_ACTION_PATH/codex_review_gate.py"

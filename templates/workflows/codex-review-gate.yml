@@ -40,4 +40,5 @@ jobs:
           ignore-outdated: 'true'
           require-current-review: 'false'
           wait-seconds: '0'
+          resolution-wait-seconds: '480'
           poll-interval-seconds: '15'
