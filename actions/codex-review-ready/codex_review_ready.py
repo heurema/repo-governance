@@ -253,7 +253,7 @@ def evaluate_ready_once(
         suffix = "thread" if count == 1 else "threads"
         return ReadyResult(
             state="failure",
-            description=f"{count} unresolved Codex Review {suffix}",
+            description=f"Resolve {count} Codex Review {suffix}",
             findings=findings,
             completion=completion,
         )
@@ -349,9 +349,80 @@ def write_summary(results: list[tuple[Any, ReadyResult]]) -> None:
     if not results:
         lines.append("No open pull request context was found for this event.")
     for ctx, result in results:
-        lines.append(f"- `{ctx.repository}#{ctx.number}` `{ctx.head_sha}`: `{result.state}` - {result.description}")
+        lines.extend(summary_lines(ctx, result))
     with open(summary_path, "a", encoding="utf-8") as handle:
         handle.write("\n".join(lines) + "\n")
+
+
+def finding_location(finding: Any) -> str:
+    path = getattr(finding, "path", None) or "unknown path"
+    line = getattr(finding, "line", None)
+    if isinstance(line, int):
+        return f"{path}:{line}"
+    return path
+
+
+def summary_lines(ctx: Any, result: ReadyResult) -> list[str]:
+    lines = [
+        f"## `{ctx.repository}#{ctx.number}`",
+        "",
+        f"- Head: `{ctx.head_sha}`",
+        f"- State: `{result.state}` - {result.description}",
+        "",
+    ]
+    if result.state == "failure" and result.findings:
+        lines.extend(
+            [
+                "Agent next action:",
+                "",
+                "1. Fix or verify each Codex Review finding.",
+                "2. Push the fix when code changed.",
+                "3. Resolve each linked GitHub review conversation after the finding is handled. Do not only wait on the gate while Codex conversations remain unresolved.",
+                "4. Wait for this polling run or the scheduled reconciler to turn `codex-review-ready` success. Do not move the head only to rerun the gate.",
+                "",
+                "Blocking Codex Review threads:",
+                "",
+            ]
+        )
+        for finding in result.findings:
+            priority = f"{getattr(finding, 'priority', None)} " if getattr(finding, "priority", None) else ""
+            title = getattr(finding, "title", None) or "Codex Review thread"
+            url = getattr(finding, "url", None)
+            suffix = f" - {url}" if url else ""
+            lines.append(f"- {priority}{finding_location(finding)}: {title}{suffix}")
+        lines.extend(
+            [
+                "",
+                "Note: an outdated GitHub review conversation is not the same as a resolved conversation. This status ignores outdated active findings by default, but repository conversation-resolution rules or external review gates may still require `isResolved=true`.",
+                "",
+            ]
+        )
+        return lines
+
+    if result.state == "pending":
+        lines.extend(
+            [
+                "Agent next action:",
+                "",
+                "- Wait for Codex Review to finish on the current head, or request a fresh Codex review if none is running.",
+                "- Resolving stale or outdated threads is not a substitute for a current-head Codex Review signal.",
+                "- Do not push an empty commit just to rerun this gate; the scheduled reconciler handles review reactions and thread-resolution updates.",
+                "",
+            ]
+        )
+        return lines
+
+    if result.state == "success":
+        lines.extend(
+            [
+                "Agent next action:",
+                "",
+                "- Codex Review is ready for this head.",
+                "- If another GitHub conversation-resolution gate is still red, resolve the remaining GitHub conversations in the PR UI or via the review-thread API.",
+                "",
+            ]
+        )
+    return lines
 
 
 def main() -> int:

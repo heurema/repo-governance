@@ -153,6 +153,24 @@ pass over open PRs.
 This catches PR `+1` reactions and review-thread resolutions, neither of which
 has a direct GitHub Actions trigger.
 
+Agent handling loop:
+
+1. When `codex-review-ready` is `failure`, open the run summary and handle each
+   listed Codex Review thread.
+2. After fixing a finding, push the code change when needed and resolve the
+   linked GitHub review conversation. Do not only wait on the gate while Codex
+   conversations remain unresolved.
+3. If a new push makes a thread outdated, treat that as separate from resolved:
+   this status ignores outdated active findings by default, but GitHub
+   conversation-resolution rules or external review gates may still require the
+   conversation to be `isResolved=true`.
+4. When `codex-review-ready` is `pending`, wait for Codex Review on the current
+   head or request a fresh Codex review. Resolving stale threads is not a
+   substitute for a current-head Codex Review signal.
+5. Do not push empty commits just to rerun this gate. The polling run and
+   scheduled reconciler are responsible for turning the status green after
+   review reactions or thread resolution.
+
 Ready inputs:
 
 | Input | Default | Meaning |

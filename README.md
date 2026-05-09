@@ -115,6 +115,12 @@ codex-review-ready
 
 The reconciler writes a commit status on the PR head. Event runs poll for up to 30 minutes and exit as soon as Codex is ready. A 5-minute scheduled run heals states that GitHub Actions cannot trigger directly, especially PR `+1` reactions and review-thread resolution.
 
+When the status is `failure`, agents should open the run summary, fix or verify
+each linked Codex finding, push code changes when needed, and resolve the linked
+GitHub review conversations. An outdated conversation is not automatically a
+resolved conversation; external conversation-resolution gates may still require
+`isResolved=true`.
+
 Required permissions:
 
 ```yaml
