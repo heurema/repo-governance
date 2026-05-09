@@ -23,6 +23,7 @@ spec.loader.exec_module(codex_review_ready)
 
 gate = codex_review_ready.gate
 evaluate_ready_once = codex_review_ready.evaluate_ready_once
+write_summary = codex_review_ready.write_summary
 PullRequestContext = gate.PullRequestContext
 
 CODEX = "chatgpt-codex-connector"
@@ -154,6 +155,21 @@ def run_cli(
         return [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
 
 
+def write_summary_text(result) -> str:
+    with tempfile.TemporaryDirectory(prefix="codex-ready-summary-") as tmp_raw:
+        summary_path = Path(tmp_raw) / "summary.md"
+        old_summary = os.environ.get("GITHUB_STEP_SUMMARY")
+        os.environ["GITHUB_STEP_SUMMARY"] = str(summary_path)
+        try:
+            write_summary([(PullRequestContext(repository="heurema/example", number=123, head_sha="head-sha"), result)])
+        finally:
+            if old_summary is None:
+                os.environ.pop("GITHUB_STEP_SUMMARY", None)
+            else:
+                os.environ["GITHUB_STEP_SUMMARY"] = old_summary
+        return summary_path.read_text(encoding="utf-8")
+
+
 def main() -> int:
     pending = evaluate([], review_state())
     assert pending.state == "pending"
@@ -167,8 +183,17 @@ def main() -> int:
 
     failure_from_thread = evaluate([thread()], review_state())
     assert failure_from_thread.state == "failure"
+    assert failure_from_thread.description == "Resolve 1 Codex Review thread"
     assert len(failure_from_thread.findings) == 1
     print("ok - unresolved Codex thread fails ready")
+
+    failure_summary = write_summary_text(failure_from_thread)
+    assert "Agent next action" in failure_summary
+    assert "Resolve each linked GitHub review conversation" in failure_summary
+    assert "Do not only wait on the gate" in failure_summary
+    assert "https://example.test/thread-1" in failure_summary
+    assert "outdated GitHub review conversation is not the same as a resolved conversation" in failure_summary
+    print("ok - failure summary tells agents to resolve review conversations")
 
     success_from_resolved_thread = evaluate([thread(resolved=True)], review_state())
     assert success_from_resolved_thread.state == "success"
@@ -177,6 +202,9 @@ def main() -> int:
 
     stale_thread = evaluate([thread(resolved=True, created_at="2026-04-30T23:58:00Z")], review_state())
     assert stale_thread.state == "pending"
+    pending_summary = write_summary_text(stale_thread)
+    assert "current-head Codex Review signal" in pending_summary
+    assert "Do not push an empty commit" in pending_summary
     print("ok - stale resolved thread does not make ready")
 
     outputs = run_cli("success", threads=[], state=review_state(reactions=[codex_reaction()]))
