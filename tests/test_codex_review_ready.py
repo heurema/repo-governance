@@ -60,14 +60,18 @@ def review_state(
     reviews: list[dict[str, object]] | None = None,
     reactions: list[dict[str, object]] | None = None,
     head_committed_at: str = "2026-05-01T00:00:00Z",
+    now: str | None = None,
 ) -> dict[str, object]:
-    return {
+    state = {
         "head_sha": "head-sha",
         "head_committed_at": head_committed_at,
         "updated_at": "2026-05-01T00:10:00Z",
         "reviews": reviews or [],
         "reactions": reactions or [],
     }
+    if now is not None:
+        state["now"] = now
+    return state
 
 
 def codex_reaction(*, created_at: str = "2026-05-01T00:02:00Z") -> dict[str, object]:
@@ -181,6 +185,30 @@ def main() -> int:
     assert success_from_reaction.completion.is_complete is True
     print("ok - clean Codex reaction makes ready")
 
+    stale_reaction_before_grace = evaluate(
+        [],
+        review_state(
+            reactions=[codex_reaction(created_at="2026-05-01T00:02:00Z")],
+            head_committed_at="2026-05-01T00:10:00Z",
+            now="2026-05-01T00:12:00Z",
+        ),
+    )
+    assert stale_reaction_before_grace.state == "pending"
+    assert stale_reaction_before_grace.description == "Codex clean-review reaction exists; waiting for review grace window"
+    print("ok - stale clean reaction waits for grace window")
+
+    stale_reaction_after_grace = evaluate(
+        [],
+        review_state(
+            reactions=[codex_reaction(created_at="2026-05-01T00:02:00Z")],
+            head_committed_at="2026-05-01T00:10:00Z",
+            now="2026-05-01T00:20:00Z",
+        ),
+    )
+    assert stale_reaction_after_grace.state == "success"
+    assert stale_reaction_after_grace.description == "Codex clean-review reaction accepted after grace window"
+    print("ok - stale clean reaction passes after grace window")
+
     failure_from_thread = evaluate([thread()], review_state())
     assert failure_from_thread.state == "failure"
     assert failure_from_thread.description == "Resolve 1 Codex Review thread"
@@ -224,6 +252,7 @@ def main() -> int:
     assert "status-context: codex-review-ready" in template
     assert "poll-seconds: '1800'" in template
     assert "poll-seconds: '0'" in template
+    assert "reaction-grace-seconds: '480'" in template
     assert "github.event_name != 'workflow_dispatch'" in template
     assert "github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'" in template
     print("ok - workflow template defines status reconciler")

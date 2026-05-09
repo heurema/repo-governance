@@ -8,7 +8,7 @@ The first tool is **PR Intake Gate**: a deterministic GitHub Action that lets tr
 
 The second tool is **Codex Review Gate**: a standalone read-only GitHub Action that fails when active Codex Review inline threads are unresolved, for repos that want a separate named check.
 
-The third tool is **Codex Review Ready**: a state-based commit-status reconciler. It writes `codex-review-ready` as `pending` until Codex has produced a current-head review signal, `failure` while active Codex threads remain unresolved, and `success` as soon as the current head has been reviewed and threads are clear.
+The third tool is **Codex Review Ready**: a state-based commit-status reconciler. It writes `codex-review-ready` as `pending` until Codex has produced a current-head review signal or an existing clean `+1` has survived the grace window, `failure` while active Codex threads remain unresolved, and `success` when the PR is clear.
 
 ## What PR Intake Gate does
 
@@ -113,7 +113,7 @@ Copy `templates/workflows/codex-review-ready.yml` into the target repo and pin t
 codex-review-ready
 ```
 
-The reconciler writes a commit status on the PR head. Event runs poll for up to 30 minutes and exit as soon as Codex is ready. A 5-minute scheduled run heals states that GitHub Actions cannot trigger directly, especially PR `+1` reactions and review-thread resolution.
+The reconciler writes a commit status on the PR head. Event runs poll for up to 30 minutes and exit as soon as Codex is ready. A 5-minute scheduled run heals states that GitHub Actions cannot trigger directly, especially PR `+1` reactions and review-thread resolution. Because GitHub issue reactions are one-per-user per PR body, an older Codex `+1` can satisfy readiness after a bounded grace window when no active Codex threads remain unresolved.
 
 When the status is `failure`, agents should open the run summary, fix or verify
 each linked Codex finding, push code changes when needed, and resolve the linked
