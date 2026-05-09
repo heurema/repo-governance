@@ -22,6 +22,7 @@ sys.modules["codex_review_gate"] = codex_review_gate
 spec.loader.exec_module(codex_review_gate)
 
 blocking_findings = codex_review_gate.blocking_findings
+current_thread_completion = codex_review_gate.current_thread_completion
 current_review_completion = codex_review_gate.current_review_completion
 evaluate_gate = codex_review_gate.evaluate_gate
 extract_priority = codex_review_gate.extract_priority
@@ -67,16 +68,20 @@ def thread(
 def review_state(
     *,
     head_sha: str = "head-sha",
+    head_committed_at: str | None = None,
     reviews: list[dict[str, object]] | None = None,
     reactions: list[dict[str, object]] | None = None,
     updated_at: str = "2026-05-01T00:00:00Z",
 ) -> dict[str, object]:
-    return {
+    state = {
         "head_sha": head_sha,
         "updated_at": updated_at,
         "reviews": reviews or [],
         "reactions": reactions or [],
     }
+    if head_committed_at is not None:
+        state["head_committed_at"] = head_committed_at
+    return state
 
 
 def codex_review(*, commit_id: str = "head-sha", state: str = "COMMENTED") -> dict[str, object]:
@@ -381,6 +386,22 @@ def main() -> int:
     )
     assert clean_reaction["current_codex_review"]["is_complete"] is True
 
+    clean_reaction_after_head_before_pr_update = current_review_completion(
+        PullRequestContext(
+            repository="heurema/example",
+            number=123,
+            head_sha="head-sha",
+            updated_at="2026-05-01T00:10:00Z",
+        ),
+        review_state(
+            head_committed_at="2026-05-01T00:00:00Z",
+            reactions=[codex_reaction(created_at="2026-05-01T00:02:00Z")],
+        ),
+        author_logins={CODEX},
+    )
+    assert clean_reaction_after_head_before_pr_update.is_complete is True
+    print("ok - clean reaction uses head commit baseline")
+
     stale_reaction, _, _ = run_case(
         "stale_reaction_before_current_update_fails",
         1,
@@ -391,6 +412,39 @@ def main() -> int:
         review_state=review_state(reactions=[codex_reaction(created_at="2026-04-30T23:59:59Z")]),
     )
     assert stale_reaction["current_codex_review"]["is_complete"] is False
+
+    resolved_current_thread = current_thread_completion(
+        PullRequestContext(repository="heurema/example", number=123, head_sha="head-sha"),
+        [
+            thread(
+                body="**<sub><sub>![P1 Badge](x)</sub></sub>  Already handled**",
+                resolved=True,
+            )
+        ],
+        review_state(head_committed_at="2026-04-30T23:59:00Z"),
+        author_logins={CODEX},
+        ignore_outdated=True,
+    )
+    assert resolved_current_thread.is_complete is True
+    assert resolved_current_thread.reason == "Codex Review thread found for current head"
+    print("ok - resolved current thread counts as review completion")
+
+    resolved_current_thread_gate, _, _ = run_case(
+        "resolved_current_thread_satisfies_current_review",
+        0,
+        "pass",
+        [
+            thread(
+                body="**<sub><sub>![P1 Badge](x)</sub></sub>  Already handled**",
+                resolved=True,
+            )
+        ],
+        require_current_review="true",
+        wait_seconds="0",
+        review_state=review_state(head_committed_at="2026-04-30T23:59:00Z"),
+    )
+    assert resolved_current_thread_gate["current_codex_review"]["is_complete"] is True
+    print("ok - strict gate accepts resolved current thread completion")
 
     unresolved, summary, _ = run_case(
         "unresolved_codex_thread_fails",

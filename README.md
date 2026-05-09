@@ -4,9 +4,11 @@
 
 Reusable repository governance tooling for Heúrema projects.
 
-The first tool is **PR Intake Gate**: a deterministic GitHub Action that lets trusted maintainers move fast while requiring stronger intake checks for outside contributors. It also runs the read-only Codex Review Gate by default, so one required `pr-intake-gate` check can block unresolved Codex Review threads and avoid going green before Codex Review has completed for the current PR head.
+The first tool is **PR Intake Gate**: a deterministic GitHub Action that lets trusted maintainers move fast while requiring stronger intake checks for outside contributors. It also runs the read-only Codex Review Gate by default, so one required `pr-intake-gate` check can block unresolved Codex Review threads that already exist.
 
 The second tool is **Codex Review Gate**: a standalone read-only GitHub Action that fails when active Codex Review inline threads are unresolved, for repos that want a separate named check.
+
+The third tool is **Codex Review Ready**: a state-based commit-status reconciler. It writes `codex-review-ready` as `pending` until Codex has produced a current-head review signal, `failure` while active Codex threads remain unresolved, and `success` as soon as the current head has been reviewed and threads are clear.
 
 ## What PR Intake Gate does
 
@@ -101,9 +103,31 @@ jobs:
 
 For stricter supply-chain control, replace `@v0.3.0` with a commit SHA after testing. Existing repositories pinned to an older SHA must update that SHA to receive newer central gate behavior.
 
+## Codex Review Ready workflow
+
+Use `codex-review-ready` as the required pre-merge Codex completion barrier. It is separate from `pr-intake-gate` because `pr-intake-gate` writes labels/comments and should stay on write-capable `pull_request_target` events only.
+
+Copy `templates/workflows/codex-review-ready.yml` into the target repo and pin the action reference. After it runs once on the default branch, require this status context:
+
+```text
+codex-review-ready
+```
+
+The reconciler writes a commit status on the PR head. Event runs poll for up to 30 minutes and exit as soon as Codex is ready. A 5-minute scheduled run heals states that GitHub Actions cannot trigger directly, especially PR `+1` reactions and review-thread resolution.
+
+Required permissions:
+
+```yaml
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+  statuses: write
+```
+
 ## Codex Review Gate workflow
 
-`actions/pr-intake-gate` runs Codex Review Gate by default. In bundled mode, the recommended configuration blocks active unresolved Codex Review threads but does not require a separate current-head Codex Review completion signal. Requiring that signal is only safe when the consuming repository has a reliable external Codex Review producer for every PR head.
+`actions/pr-intake-gate` runs Codex Review Gate by default. In bundled mode, the recommended configuration blocks active unresolved Codex Review threads but does not require a separate current-head Codex Review completion signal. Use `codex-review-ready` for that completion signal.
 
 After Codex reports findings, fixing code is not always enough. Resolve the linked GitHub review conversations, or push a new commit that makes stale diff threads outdated. Repositories with GitHub branch protection conversation resolution enabled will also block merge until those conversations are resolved.
 
@@ -111,7 +135,9 @@ GitHub Actions does not trigger a workflow when a review thread is resolved. The
 recommended workflow keeps the gate running for a bounded
 `codex-review-resolution-wait-seconds` window, then polls GitHub until the
 threads are resolved or outdated. After that window expires, a manual rerun or a
-new push is still required.
+new push is still required for the thread-only check. The `codex-review-ready`
+status also has a scheduled healing pass and is the preferred required
+pre-merge barrier.
 
 Keep `pr-intake-gate` on `pull_request_target` events. It writes labels and comments, so running it from `pull_request_review` or `pull_request_review_comment` can give fork and Dependabot PRs a read-only token and turn review activity into a false gate failure.
 
@@ -119,14 +145,11 @@ To make unresolved Codex Review conversations visible after review activity, add
 
 The check fails when an active unresolved review thread has a comment from `chatgpt-codex-connector`. It ignores outdated threads by default and does not write labels or comments.
 
-Do not enable `require-current-review` unless the consuming repository
-has a reliable external trigger that always submits a Codex review artifact for
-every PR head. Without that guarantee, current-review mode can become a global
-merge blocker outside repository control. The recommended standalone workflow
-and bundled intake configuration keep `require-current-review: 'false'` and
-block only actual unresolved Codex review threads.
+Do not enable `require-current-review` in `pr-intake-gate` or standalone
+`codex-review-gate` for normal rollout. The state-based `codex-review-ready`
+workflow handles current-head completion without stale required Actions jobs.
 
-After the workflow has run once on the default branch, require status check:
+If a repo intentionally uses standalone thread-only enforcement, after the workflow has run once on the default branch, require status check:
 
 ```text
 codex-review-gate
@@ -176,6 +199,7 @@ python3 scripts/audit_repos.py --root /Users/vi/personal/heurema --format csv > 
 ```bash
 python3 tests/test_pr_intake_gate.py
 python3 tests/test_codex_review_gate.py
+python3 tests/test_codex_review_ready.py
 ```
 
 ## Docs
