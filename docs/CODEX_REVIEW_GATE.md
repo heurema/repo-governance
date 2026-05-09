@@ -10,6 +10,20 @@ It is meant to complement GitHub branch protection conversation resolution:
 
 `actions/pr-intake-gate` runs this gate by default after intake checks. In bundled mode, `pr-intake-gate` blocks active unresolved Codex Review threads without requiring a separate current-head Codex Review completion signal. Use the standalone action when a repository needs a separate `codex-review-gate` status context for review activity.
 
+For a reliable pre-merge completion barrier, use **Codex Review Ready** instead
+of strict `require-current-review` mode. It writes the `codex-review-ready`
+commit status as:
+
+- `pending` until Codex Review has a current-head terminal signal;
+- `failure` while active non-outdated Codex Review threads are unresolved;
+- `success` when Codex has reviewed the current head and no active Codex threads
+  remain unresolved.
+
+The ready reconciler runs from PR/review events and a 5-minute schedule. This
+keeps merge blocked before late Codex comments can land, while avoiding stale red
+Actions checks after review-thread resolution or `+1` reactions that do not emit
+workflow events.
+
 The recommended standalone mode blocks actual unresolved Codex review threads
 without requiring a fresh Codex Review artifact on every PR head. Enable
 standalone `require-current-review` only in repositories that have a reliable
@@ -45,8 +59,10 @@ When `require-current-review` is explicitly enabled, the action also requires
 one of these current-head completion signals before passing:
 
 - a pull-request review by a configured Codex author on the current head SHA;
-- a clean-review `+1` reaction by a configured Codex author after the current PR
-  update timestamp.
+- a clean-review `+1` reaction by a configured Codex author after the current
+  head commit timestamp;
+- a non-outdated Codex Review thread comment after the current head commit
+  timestamp.
 
 If neither signal appears before `wait-seconds` expires, the check fails. Do not
 use this mode as a required branch-protection check unless the Codex Review
@@ -102,7 +118,53 @@ with:
 ```
 
 Keep `codex-review-require-current-review: 'false'` when the repository does
-not have a reliable Codex Review producer for every PR head.
+not have a reliable Codex Review producer for every PR head. Prefer
+`codex-review-ready` for that producer/completion contract.
+
+## Codex Review Ready status
+
+Copy `templates/workflows/codex-review-ready.yml` into the consuming repository.
+After the workflow has run once on the default branch, require this commit status
+context in branch protection:
+
+```text
+codex-review-ready
+```
+
+Use a pinned action reference in mature repositories:
+
+```yaml
+uses: heurema/repo-governance/actions/codex-review-ready@<commit-sha>
+```
+
+Required workflow permissions:
+
+```yaml
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+  statuses: write
+```
+
+Event runs poll for up to `poll-seconds` and exit as soon as the status becomes
+ready. Scheduled and manual dispatch runs use `poll-seconds: '0'` as a healing
+pass over open PRs.
+This catches PR `+1` reactions and review-thread resolutions, neither of which
+has a direct GitHub Actions trigger.
+
+Ready inputs:
+
+| Input | Default | Meaning |
+| --- | --- | --- |
+| `github-token` | required | Token used for GitHub reads and commit-status writes. |
+| `review-author-logins` | `chatgpt-codex-connector` | Comma-separated Codex author logins. |
+| `ignore-outdated` | `true` | When `true`, outdated unresolved threads do not block. |
+| `status-context` | `codex-review-ready` | Commit status context to write. |
+| `poll-seconds` | `1800` | Seconds to poll before timeout. |
+| `poll-interval-seconds` | `10` | Seconds between polling attempts. |
+| `timeout-state` | `failure` | Status to write when Codex does not complete before timeout. |
+| `max-open-prs` | `50` | Maximum open PRs reconciled on schedule/workflow_dispatch. |
 
 ## Standalone target workflow
 
@@ -163,6 +225,7 @@ Run the repository tests:
 
 ```bash
 python3 tests/test_codex_review_gate.py
+python3 tests/test_codex_review_ready.py
 ```
 
 ## Rollout test cases
@@ -172,8 +235,9 @@ Use temporary PRs in the consuming repo before requiring the check:
 1. No Codex threads: check passes.
 2. Unresolved active Codex thread: check fails and prints the thread URL.
 3. Resolve the Codex thread while the polling window is still open: branch protection conversation resolution unblocks the PR and the check passes on the next poll.
-4. Outdated Codex thread after new push: check passes.
+4. Outdated Codex thread after new push: thread-only check passes; `codex-review-ready` remains non-green until Codex reviews the new head.
 5. Unresolved non-Codex thread: this gate passes; branch protection conversation resolution may still block merge.
-6. Standalone workflow with recommended `require-current-review: false` and no Codex threads: check passes without waiting for an external Codex review artifact.
-7. Optional strict mode with `require-current-review: true` and no current Codex result: check waits, then fails.
-8. Optional strict mode with `require-current-review: true` and Codex returns clean `+1` for the current PR update: check passes.
+6. Ready workflow before Codex has reviewed the current head: `codex-review-ready` is `pending`.
+7. Ready workflow after Codex leaves unresolved threads: `codex-review-ready` is `failure`.
+8. Resolve the Codex threads while the event poller is still running: `codex-review-ready` turns `success` on the next poll.
+9. Codex returns clean `+1`: the event poller or next schedule run turns `codex-review-ready` `success`.

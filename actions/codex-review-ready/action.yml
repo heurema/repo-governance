@@ -1,0 +1,56 @@
+name: Codex Review Ready
+description: Maintain a commit status that is green only after Codex Review is complete and unresolved threads are clear.
+
+inputs:
+  github-token:
+    description: GitHub token used to read PR review state and write commit statuses.
+    required: true
+  review-author-logins:
+    description: Comma-separated GitHub logins whose review activity controls readiness.
+    required: false
+    default: 'chatgpt-codex-connector'
+  ignore-outdated:
+    description: Whether to ignore outdated Codex Review threads.
+    required: false
+    default: 'true'
+  status-context:
+    description: Commit status context to write.
+    required: false
+    default: 'codex-review-ready'
+  poll-seconds:
+    description: Seconds to poll for Codex completion or thread resolution before leaving a terminal timeout status.
+    required: false
+    default: '1800'
+  poll-interval-seconds:
+    description: Seconds between polling attempts.
+    required: false
+    default: '10'
+  timeout-state:
+    description: Commit status state to write when Codex Review does not complete before poll timeout. Use failure or pending.
+    required: false
+    default: 'failure'
+  max-open-prs:
+    description: Maximum open pull requests to reconcile on schedule or workflow_dispatch events.
+    required: false
+    default: '50'
+  dry-run:
+    description: Print planned statuses without writing them.
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Reconcile Codex Review ready status
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        CODEX_REVIEW_READY_AUTHOR_LOGINS: ${{ inputs.review-author-logins }}
+        CODEX_REVIEW_READY_IGNORE_OUTDATED: ${{ inputs.ignore-outdated }}
+        CODEX_REVIEW_READY_STATUS_CONTEXT: ${{ inputs.status-context }}
+        CODEX_REVIEW_READY_POLL_SECONDS: ${{ inputs.poll-seconds }}
+        CODEX_REVIEW_READY_POLL_INTERVAL_SECONDS: ${{ inputs.poll-interval-seconds }}
+        CODEX_REVIEW_READY_TIMEOUT_STATE: ${{ inputs.timeout-state }}
+        CODEX_REVIEW_READY_MAX_OPEN_PRS: ${{ inputs.max-open-prs }}
+        CODEX_REVIEW_READY_DRY_RUN: ${{ inputs.dry-run }}
+      run: python3 "$GITHUB_ACTION_PATH/codex_review_ready.py"

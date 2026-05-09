@@ -374,8 +374,18 @@ def fetch_review_completion_state(ctx: PullRequestContext) -> dict[str, Any]:
 
     head = pull_request.get("head")
     head_sha = head.get("sha") if isinstance(head, dict) else ""
+    head_committed_at = None
+    if head_sha:
+        commit = rest_request(token, f"{prefix}/commits/{urllib.parse.quote(str(head_sha), safe='')}")
+        if isinstance(commit, dict):
+            commit_detail = commit.get("commit")
+            if isinstance(commit_detail, dict):
+                committer = commit_detail.get("committer")
+                if isinstance(committer, dict):
+                    head_committed_at = committer.get("date")
     return {
         "head_sha": str(head_sha or ""),
+        "head_committed_at": head_committed_at,
         "updated_at": pull_request.get("updated_at"),
         "reviews": reviews,
         "reactions": reactions,
@@ -492,6 +502,17 @@ def review_commit_id(review: dict[str, Any]) -> str:
     return ""
 
 
+def current_head_baseline(ctx: PullRequestContext, state: dict[str, Any]) -> datetime | None:
+    for key in ("head_committed_at", "head_pushed_at", "head_updated_at"):
+        baseline = parse_timestamp(state.get(key))
+        if baseline is not None:
+            return baseline
+    baseline = parse_timestamp(ctx.updated_at)
+    if baseline is None:
+        baseline = parse_timestamp(state.get("updated_at"))
+    return baseline
+
+
 def current_review_completion(
     ctx: PullRequestContext,
     state: dict[str, Any],
@@ -523,9 +544,7 @@ def current_review_completion(
             completed_at=str(review.get("submitted_at") or review.get("submittedAt") or "") or None,
         )
 
-    baseline = parse_timestamp(ctx.updated_at)
-    if baseline is None:
-        baseline = parse_timestamp(state.get("updated_at"))
+    baseline = current_head_baseline(ctx, state)
     reactions = state.get("reactions") or []
     if not isinstance(reactions, list):
         raise GateError("review completion state reactions must be a list")
@@ -546,6 +565,42 @@ def current_review_completion(
                 head_sha,
                 completed_by=actor_login(reaction),
                 completed_at=str(reaction.get("created_at") or reaction.get("createdAt") or "") or None,
+            )
+
+    return ReviewCompletion(False, "Codex Review has not completed for current head", head_sha)
+
+
+def current_thread_completion(
+    ctx: PullRequestContext,
+    threads: Iterable[dict[str, Any]],
+    state: dict[str, Any],
+    *,
+    author_logins: set[str],
+    ignore_outdated: bool,
+) -> ReviewCompletion:
+    head_sha = str(state.get("head_sha") or ctx.head_sha or "")
+    if not head_sha:
+        return ReviewCompletion(False, "pull request head SHA is missing", None)
+
+    baseline = current_head_baseline(ctx, state)
+    for thread in threads:
+        if not isinstance(thread, dict):
+            continue
+        if ignore_outdated and thread.get("isOutdated") is True:
+            continue
+        for comment in thread_comments(thread):
+            if not login_matches(comment_author_login(comment), author_logins):
+                continue
+            created_at_raw = comment.get("createdAt") or comment.get("created_at")
+            created_at = parse_timestamp(created_at_raw)
+            if baseline is not None and (created_at is None or created_at < baseline):
+                continue
+            return ReviewCompletion(
+                True,
+                "Codex Review thread found for current head",
+                head_sha,
+                completed_by=comment_author_login(comment),
+                completed_at=str(created_at_raw or "") or None,
             )
 
     return ReviewCompletion(False, "Codex Review has not completed for current head", head_sha)
@@ -721,6 +776,14 @@ def evaluate_gate(
         if require_current_review:
             review_state = fetch_review_completion_state(ctx)
             completion = current_review_completion(ctx, review_state, author_logins=author_logins)
+            if not completion.is_complete:
+                completion = current_thread_completion(
+                    ctx,
+                    threads,
+                    review_state,
+                    author_logins=author_logins,
+                    ignore_outdated=ignore_outdated,
+                )
             if completion.is_complete:
                 break
         else:
