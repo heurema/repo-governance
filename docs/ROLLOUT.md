@@ -31,7 +31,8 @@ cp /path/to/repo-governance/templates/workflows/codex-review-ready.yml \
 
 - `pending` before Codex has produced a current-head terminal signal;
 - `failure` while active Codex threads remain unresolved;
-- `success` after Codex has reviewed the current head and all active Codex threads are clear.
+- `success` after Codex has reviewed the current head and all active Codex threads are clear;
+- `success` after an existing Codex clean `+1` survives the grace window with no active Codex threads unresolved.
 
 Use `codex-review-ready` instead of strict `require-current-review` mode for branch protection. The ready workflow polls on PR/review events and also runs on a 5-minute schedule, so review-thread resolution and clean `+1` reactions can turn the status green without a manual rerun or dummy push.
 

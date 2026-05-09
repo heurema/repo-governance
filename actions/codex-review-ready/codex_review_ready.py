@@ -20,6 +20,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -77,6 +78,14 @@ def parse_args() -> argparse.Namespace:
         default=os.environ.get("CODEX_REVIEW_READY_TIMEOUT_STATE", "failure"),
         choices=("failure", "pending"),
         help="Status state to write when Codex Review does not complete before timeout.",
+    )
+    parser.add_argument(
+        "--reaction-grace-seconds",
+        default=os.environ.get("CODEX_REVIEW_READY_REACTION_GRACE_SECONDS", "480"),
+        help=(
+            "Seconds to wait after the current head update before accepting an "
+            "older clean-review reaction when no Codex threads remain unresolved."
+        ),
     )
     parser.add_argument(
         "--max-open-prs",
@@ -229,11 +238,89 @@ def reconcile_contexts(event: dict[str, Any], *, max_open_prs: int) -> list[Any]
     return list_open_pr_contexts(repository_from_event(event), limit=max_open_prs)
 
 
+def now_utc(state: dict[str, Any]) -> datetime:
+    fixture_now = gate.parse_timestamp(state.get("now"))
+    if fixture_now is not None:
+        return fixture_now
+    return datetime.now(timezone.utc)
+
+
+def clean_reaction_completion_after_grace(
+    ctx: Any,
+    state: dict[str, Any],
+    *,
+    author_logins: set[str],
+    reaction_grace_seconds: int,
+) -> Any | None:
+    """Accept an existing PR-level clean reaction after a bounded grace window.
+
+    GitHub issue reactions are one-per-user per PR body, so a Codex connector
+    that uses a `+1` reaction as the clean-review signal cannot create a fresh
+    reaction for every later rebase or no-diff retry commit. The strict
+    current-head check still wins when a fresh review, thread, or reaction
+    exists. This fallback only applies when no unresolved Codex threads are
+    present and the current head has had time to receive late review comments.
+    """
+
+    reactions = state.get("reactions") or []
+    if not isinstance(reactions, list):
+        raise gate.GateError("review completion state reactions must be a list")
+
+    clean_reactions: list[dict[str, Any]] = []
+    for reaction in reactions:
+        if not isinstance(reaction, dict):
+            continue
+        if str(reaction.get("content") or "").upper() not in {"+1", "THUMBS_UP"}:
+            continue
+        if not gate.login_matches(gate.actor_login(reaction), author_logins):
+            continue
+        clean_reactions.append(reaction)
+    if not clean_reactions:
+        return None
+
+    head_sha = str(state.get("head_sha") or ctx.head_sha or "")
+    baseline = gate.current_head_baseline(ctx, state)
+    latest_reaction = max(
+        clean_reactions,
+        key=lambda item: gate.parse_timestamp(item.get("created_at") or item.get("createdAt"))
+        or datetime.min.replace(tzinfo=timezone.utc),
+    )
+    reaction_created_at_raw = latest_reaction.get("created_at") or latest_reaction.get("createdAt")
+
+    if baseline is None:
+        return gate.ReviewCompletion(
+            True,
+            "Codex clean-review reaction present",
+            head_sha,
+            completed_by=gate.actor_login(latest_reaction),
+            completed_at=str(reaction_created_at_raw or "") or None,
+        )
+
+    grace_deadline = baseline + timedelta(seconds=reaction_grace_seconds)
+    if now_utc(state) < grace_deadline:
+        return gate.ReviewCompletion(
+            False,
+            "Codex clean-review reaction exists; waiting for review grace window",
+            head_sha,
+            completed_by=gate.actor_login(latest_reaction),
+            completed_at=str(reaction_created_at_raw or "") or None,
+        )
+
+    return gate.ReviewCompletion(
+        True,
+        "Codex clean-review reaction accepted after grace window",
+        head_sha,
+        completed_by=gate.actor_login(latest_reaction),
+        completed_at=str(reaction_created_at_raw or "") or None,
+    )
+
+
 def evaluate_ready_once(
     ctx: Any,
     *,
     author_logins: set[str],
     ignore_outdated: bool,
+    reaction_grace_seconds: int = 480,
 ) -> ReadyResult:
     threads = gate.fetch_review_threads(ctx)
     findings = gate.blocking_findings(threads, author_logins=author_logins, ignore_outdated=ignore_outdated)
@@ -247,6 +334,15 @@ def evaluate_ready_once(
             author_logins=author_logins,
             ignore_outdated=ignore_outdated,
         )
+    if not completion.is_complete:
+        fallback_completion = clean_reaction_completion_after_grace(
+            ctx,
+            review_state,
+            author_logins=author_logins,
+            reaction_grace_seconds=reaction_grace_seconds,
+        )
+        if fallback_completion is not None:
+            completion = fallback_completion
 
     if findings:
         count = len(findings)
@@ -293,6 +389,7 @@ def reconcile_one(
     poll_seconds: int,
     poll_interval_seconds: int,
     timeout_state: str,
+    reaction_grace_seconds: int,
     dry_run: bool,
 ) -> ReadyResult:
     deadline = time.monotonic() + poll_seconds
@@ -306,7 +403,12 @@ def reconcile_one(
     )
 
     while True:
-        result = evaluate_ready_once(ctx, author_logins=author_logins, ignore_outdated=ignore_outdated)
+        result = evaluate_ready_once(
+            ctx,
+            author_logins=author_logins,
+            ignore_outdated=ignore_outdated,
+            reaction_grace_seconds=reaction_grace_seconds,
+        )
         status_key = (result.state, result.description)
         if status_key != last_status_key:
             post_commit_status(
@@ -431,6 +533,10 @@ def main() -> int:
     ignore_outdated = env_flag(str(args.ignore_outdated), default=True)
     poll_seconds = parse_non_negative_int(str(args.poll_seconds), field="poll-seconds")
     poll_interval_seconds = parse_non_negative_int(str(args.poll_interval_seconds), field="poll-interval-seconds")
+    reaction_grace_seconds = parse_non_negative_int(
+        str(args.reaction_grace_seconds),
+        field="reaction-grace-seconds",
+    )
     max_open_prs = parse_non_negative_int(str(args.max_open_prs), field="max-open-prs")
     if poll_seconds > 0 and poll_interval_seconds == 0:
         raise gate.GateError("poll-interval-seconds must be greater than zero when poll-seconds is greater than zero")
@@ -450,6 +556,7 @@ def main() -> int:
             poll_seconds=poll_seconds,
             poll_interval_seconds=poll_interval_seconds,
             timeout_state=str(args.timeout_state),
+            reaction_grace_seconds=reaction_grace_seconds,
             dry_run=dry_run,
         )
         results.append((ctx, result))

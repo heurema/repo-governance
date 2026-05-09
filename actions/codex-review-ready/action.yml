@@ -29,6 +29,10 @@ inputs:
     description: Commit status state to write when Codex Review does not complete before poll timeout. Use failure or pending.
     required: false
     default: 'failure'
+  reaction-grace-seconds:
+    description: Seconds to wait after a current-head update before accepting an older clean-review reaction when no Codex threads remain unresolved.
+    required: false
+    default: '480'
   max-open-prs:
     description: Maximum open pull requests to reconcile on schedule or workflow_dispatch events.
     required: false
@@ -51,6 +55,7 @@ runs:
         CODEX_REVIEW_READY_POLL_SECONDS: ${{ inputs.poll-seconds }}
         CODEX_REVIEW_READY_POLL_INTERVAL_SECONDS: ${{ inputs.poll-interval-seconds }}
         CODEX_REVIEW_READY_TIMEOUT_STATE: ${{ inputs.timeout-state }}
+        CODEX_REVIEW_READY_REACTION_GRACE_SECONDS: ${{ inputs.reaction-grace-seconds }}
         CODEX_REVIEW_READY_MAX_OPEN_PRS: ${{ inputs.max-open-prs }}
         CODEX_REVIEW_READY_DRY_RUN: ${{ inputs.dry-run }}
       run: python3 "$GITHUB_ACTION_PATH/codex_review_ready.py"

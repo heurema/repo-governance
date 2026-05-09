@@ -46,6 +46,7 @@ jobs:
           poll-seconds: '1800'
           poll-interval-seconds: '10'
           timeout-state: failure
+          reaction-grace-seconds: '480'
 
       - name: Reconcile open PRs on schedule or dispatch
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -59,4 +60,5 @@ jobs:
           poll-seconds: '0'
           poll-interval-seconds: '10'
           timeout-state: pending
+          reaction-grace-seconds: '480'
           max-open-prs: '50'

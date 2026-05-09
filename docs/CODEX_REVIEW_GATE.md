@@ -18,11 +18,16 @@ commit status as:
 - `failure` while active non-outdated Codex Review threads are unresolved;
 - `success` when Codex has reviewed the current head and no active Codex threads
   remain unresolved.
+- `success` after a bounded grace window when an older Codex `+1` reaction is
+  present and no active Codex threads remain unresolved.
 
 The ready reconciler runs from PR/review events and a 5-minute schedule. This
 keeps merge blocked before late Codex comments can land, while avoiding stale red
 Actions checks after review-thread resolution or `+1` reactions that do not emit
 workflow events.
+The grace-window fallback exists because GitHub issue reactions are one-per-user
+per PR body: a connector that already left `+1` cannot leave a second fresh `+1`
+for every later rebase or no-diff retry commit.
 
 The recommended standalone mode blocks actual unresolved Codex review threads
 without requiring a fresh Codex Review artifact on every PR head. Enable
@@ -165,8 +170,8 @@ Agent handling loop:
    conversation-resolution rules or external review gates may still require the
    conversation to be `isResolved=true`.
 4. When `codex-review-ready` is `pending`, wait for Codex Review on the current
-   head or request a fresh Codex review. Resolving stale threads is not a
-   substitute for a current-head Codex Review signal.
+   head or for the clean-reaction grace window to expire. Resolving stale
+   threads is not a substitute for a current-head Codex Review signal.
 5. Do not push empty commits just to rerun this gate. The polling run and
    scheduled reconciler are responsible for turning the status green after
    review reactions or thread resolution.
@@ -182,6 +187,7 @@ Ready inputs:
 | `poll-seconds` | `1800` | Seconds to poll before timeout. |
 | `poll-interval-seconds` | `10` | Seconds between polling attempts. |
 | `timeout-state` | `failure` | Status to write when Codex does not complete before timeout. |
+| `reaction-grace-seconds` | `480` | Seconds to wait after the current head update before accepting an older clean-review reaction when no Codex threads remain unresolved. |
 | `max-open-prs` | `50` | Maximum open PRs reconciled on schedule/workflow_dispatch. |
 
 ## Standalone target workflow
