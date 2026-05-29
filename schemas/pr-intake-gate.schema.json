@@ -3,7 +3,7 @@
   "$id": "https://github.com/heurema/repo-governance/schemas/pr-intake-gate.schema.json",
   "title": "PR Intake Gate policy",
   "type": "object",
-  "additionalProperties": true,
+  "additionalProperties": false,
   "properties": {
     "project": {
       "type": "object",
@@ -103,6 +103,10 @@
       "properties": {
         "marker": {"type": "string"}
       }
+    },
+    "llm": {
+      "type": "object",
+      "additionalProperties": true
     }
   }
 }

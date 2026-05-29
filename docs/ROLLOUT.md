@@ -55,6 +55,8 @@ Minimum tuning:
 - `linked_intent.accept_patterns`: local issue, discussion, ADR, research, goal, or report references.
 - `bot_comment.marker`: unique marker for that repo.
 
+Unknown top-level keys fail fast. Validate local policy spelling before upgrading the central action; for example, `highrisk_path_globs` is rejected because the supported key is `high_risk_path_globs`.
+
 Do not move repo-specific risk decisions into this central repo. The local policy is the reviewable source of truth.
 
 ## 4. Install labels

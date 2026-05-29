@@ -4,6 +4,8 @@ Each consuming repository owns its local policy at `.github/pr-intake-gate.yml`.
 
 The central action deliberately supports a small YAML subset: nested mappings, scalar lists, quoted or unquoted scalars, booleans, nulls, and integers. Do not use anchors, tabs, multiline strings, or flow-style YAML.
 
+Root-level policy keys are strict. Unknown top-level keys fail fast so typos such as `highrisk_path_globs` cannot silently bypass the intended `high_risk_path_globs` configuration.
+
 ## Decision order
 
 The gate evaluates PRs in this order:

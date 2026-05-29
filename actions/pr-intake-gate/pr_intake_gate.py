@@ -73,6 +73,22 @@ DEFAULT_PROMPT_INJECTION_PATTERNS = (
     r"color\s*:\s*(white|#fff|#ffffff|transparent)",
 )
 DEFAULT_PROMPT_INJECTION_HIDDEN_CHARS = "\u200b\u200c\u200d\u2060\ufeff"
+ALLOWED_POLICY_ROOT_KEYS = (
+    "bot_comment",
+    "external_context",
+    "high_risk",
+    "high_risk_path_globs",
+    "instruction_surface",
+    "label_details",
+    "labels",
+    "linked_intent",
+    "llm",
+    "project",
+    "prompt_injection",
+    "trivial",
+    "trusted_authors",
+)
+ALLOWED_POLICY_ROOT_KEY_SET = frozenset(ALLOWED_POLICY_ROOT_KEYS)
 
 
 class GateError(RuntimeError):
@@ -876,6 +892,12 @@ def build_missing_context_comment(config: dict[str, Any], ctx: PullRequestContex
 
 
 def validate_policy(config: dict[str, Any]) -> None:
+    unknown_keys = sorted(set(config) - ALLOWED_POLICY_ROOT_KEY_SET)
+    if unknown_keys:
+        allowed = ", ".join(ALLOWED_POLICY_ROOT_KEYS)
+        if len(unknown_keys) == 1:
+            raise GateError(f"Unknown top-level policy key: {unknown_keys[0]}. Allowed top-level keys: {allowed}")
+        raise GateError(f"Unknown top-level policy keys: {', '.join(unknown_keys)}. Allowed top-level keys: {allowed}")
     if not isinstance(config.get("labels", {}), dict):
         raise GateError("policy.labels must be a mapping")
     trivial = config.get("trivial", {})
@@ -1116,6 +1138,7 @@ def main() -> int:
     try:
         args = parse_args()
         config = load_minimal_yaml(args.policy)
+        validate_policy(config)
         event = load_event()
         ctx = get_pr_context(event)
         author_permission = resolve_author_permission(ctx)

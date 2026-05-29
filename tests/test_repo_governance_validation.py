@@ -69,6 +69,26 @@ def policy_validation_rejects_empty_marker() -> None:
     print("ok - policy validation rejects empty marker")
 
 
+def policy_validation_rejects_unknown_root_key() -> None:
+    with tempfile.TemporaryDirectory(prefix="repo-governance-policy-") as tmp_raw:
+        policy = Path(tmp_raw) / "pr-intake-gate.yml"
+        policy.write_text(
+            "\n".join(
+                [
+                    "bot_comment:",
+                    "  marker: '<!-- test-pr-intake-gate -->'",
+                    "highrisk_path_globs:",
+                    "  - '.github/**'",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        findings = validate_policy_file(ROOT, policy)
+    assert_message(findings, "Unknown top-level policy key: highrisk_path_globs")
+    print("ok - policy validation rejects unknown root key")
+
+
 def current_repository_validates() -> None:
     findings = validate_repository(ROOT)
     if findings:
@@ -80,6 +100,7 @@ def current_repository_validates() -> None:
 def main() -> int:
     workflow_validation_rejects_rollout_footguns()
     policy_validation_rejects_empty_marker()
+    policy_validation_rejects_unknown_root_key()
     current_repository_validates()
     return 0
 

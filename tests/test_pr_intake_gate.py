@@ -36,6 +36,7 @@ markdown_sections = pr_intake_gate.markdown_sections
 missing_required_sections = pr_intake_gate.missing_required_sections
 path_matches = pr_intake_gate.path_matches
 run_optional_side_effect = pr_intake_gate.run_optional_side_effect
+validate_policy = pr_intake_gate.validate_policy
 
 FULL_EXTERNAL_BODY = """## Problem
 
@@ -216,6 +217,36 @@ def helper_semantics() -> None:
     print("ok - helper semantics")
 
 
+def policy_validation_rejects_unknown_root_keys() -> None:
+    for key, value in (
+        ("highrisk_path_globs", [".github/**"]),
+        ("unexpected_policy_knob", True),
+    ):
+        try:
+            validate_policy({key: value})
+        except GateError as exc:
+            message = str(exc)
+            assert f"Unknown top-level policy key: {key}" in message
+            assert "high_risk_path_globs" in message
+            assert "bot_comment" in message
+        else:
+            raise AssertionError(f"{key} should fail as an unknown top-level policy key")
+    print("ok - policy validation rejects unknown root keys")
+
+
+def checked_in_policy_files_validate() -> None:
+    policy_paths = [
+        ROOT / ".github" / "pr-intake-gate.yml",
+        POLICY_PATH,
+        *sorted((ROOT / "examples").glob("*.pr-intake-gate.yml")),
+    ]
+    for path in policy_paths:
+        config = load_minimal_yaml(str(path))
+        validate_policy(config)
+        marker_for(config)
+    print("ok - checked-in policy files validate")
+
+
 def action_wrapper_runs_thread_only_codex_review_gate_by_default() -> None:
     action = ACTION_PATH.read_text(encoding="utf-8")
     require_current = re.search(
@@ -262,6 +293,8 @@ def workflow_template_keeps_intake_on_write_capable_events() -> None:
 
 def main() -> int:
     helper_semantics()
+    policy_validation_rejects_unknown_root_keys()
+    checked_in_policy_files_validate()
     action_wrapper_runs_thread_only_codex_review_gate_by_default()
     workflow_template_keeps_intake_on_write_capable_events()
 
