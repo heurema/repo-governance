@@ -201,7 +201,7 @@ python3 /path/to/repo-governance/scripts/rollout_release.py \
 To pin consumers directly to the v0.5.0 release commit instead of the tag after the release exists:
 
 ```bash
-V050_SHA="$(git rev-list -n 1 v0.5.0)"
+V050_SHA="$(git -C /path/to/repo-governance rev-list -n 1 v0.5.0)"
 python3 /path/to/repo-governance/scripts/rollout_release.py \
   --root ~/personal/heurema \
   --from v0.4.0 \

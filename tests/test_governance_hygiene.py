@@ -47,6 +47,7 @@ def v050_release_guidance_is_consistent() -> None:
     assert "strict root-level PR Intake policy validation" in release_notes
     assert "git tag -a v0.5.0" in release_notes
     assert "gh release create v0.5.0" in release_notes
+    assert 'git -C /path/to/repo-governance rev-list -n 1 v0.5.0' in read("docs/ROLLOUT.md")
     assert "after this PR is merged" in release_notes
     print("ok - v0.5.0 release guidance is consistent")
 

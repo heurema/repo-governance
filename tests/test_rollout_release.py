@@ -6,6 +6,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 import tempfile
+from argparse import Namespace
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -81,11 +82,48 @@ def dirty_repo_safety_logic_is_unit_testable() -> None:
     print("ok - dirty repo safety logic is unit testable")
 
 
+def default_pr_body_omits_unresolved_release_commit() -> None:
+    args = Namespace(
+        from_ref="v0.4.0",
+        to_ref="v0.5.0",
+        release_label="v0.5.0",
+        release_commit=rollout_release.DEFAULT_RELEASE_COMMIT,
+        branch_name="",
+        commit_message="",
+        pr_title="",
+    )
+
+    context = rollout_release.build_release_context(args)
+
+    assert "Release commit:" not in context.pr_body
+    assert "resolve-from" not in context.pr_body
+    print("ok - default PR body omits unresolved release commit")
+
+
+def explicit_pr_body_includes_release_commit() -> None:
+    args = Namespace(
+        from_ref="v0.4.0",
+        to_ref="abc123",
+        release_label="v0.5.0",
+        release_commit="abc123",
+        branch_name="",
+        commit_message="",
+        pr_title="",
+    )
+
+    context = rollout_release.build_release_context(args)
+
+    assert "Release commit: abc123" in context.pr_body
+    print("ok - explicit PR body includes release commit")
+
+
 def main() -> int:
     action_ref_parser_extracts_action_and_ref()
     replacement_updates_only_repo_governance_action_refs()
     audit_finds_refs_in_workflow_text()
     dirty_repo_safety_logic_is_unit_testable()
+    default_pr_body_omits_unresolved_release_commit()
+    explicit_pr_body_includes_release_commit()
     return 0
 
 
