@@ -31,7 +31,7 @@ jobs:
           persist-credentials: false
 
       - name: Run PR intake gate
-        uses: heurema/repo-governance/actions/pr-intake-gate@v0.3.0
+        uses: heurema/repo-governance/actions/pr-intake-gate@f6a16882fd5e28968d77be063bb0ed4dca266c99
         with:
           policy-path: .github/pr-intake-gate.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
