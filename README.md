@@ -206,6 +206,10 @@ python3 scripts/audit_repos.py --root /Users/vi/personal/heurema --format csv > 
 python3 tests/test_pr_intake_gate.py
 python3 tests/test_codex_review_gate.py
 python3 tests/test_codex_review_ready.py
+python3 tests/test_repo_governance_validation.py
+python3 tests/test_audit_repos.py
+python3 tests/test_governance_hygiene.py
+python3 scripts/validate_repo_governance.py
 ```
 
 ## Docs
@@ -214,4 +218,7 @@ python3 tests/test_codex_review_ready.py
 - `docs/PROMPT_INJECTION_GUARDRAILS.md` - research-backed prompt-injection guardrails for docs and AI instruction surfaces.
 - `docs/CODEX_REVIEW_GATE.md` - Codex Review Gate behavior and rollout notes.
 - `docs/ROLLOUT.md` - step-by-step rollout guide for target repositories.
+- `docs/RELEASES.md` - release notes and release-model expectations.
+- `CONTRIBUTING.md` - contributor workflow and local verification.
+- `SECURITY.md` - security reporting and supported security boundary.
 - `AGENTS.md` - detailed operating instructions for coding agents.

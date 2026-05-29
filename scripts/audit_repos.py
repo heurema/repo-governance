@@ -20,6 +20,10 @@ class RepoStatus:
     workflow: bool
     pr_template: bool
     shared_action: bool
+    codeowners: bool
+    security: bool
+    contributing: bool
+    license: bool
 
 
 def git_remote(repo: Path) -> str:
@@ -49,6 +53,9 @@ def inspect_repo(repo: Path) -> RepoStatus:
     policy = repo / ".github" / "pr-intake-gate.yml"
     workflow = repo / ".github" / "workflows" / "pr-intake-gate.yml"
     template = repo / ".github" / "PULL_REQUEST_TEMPLATE.md"
+    codeowners = repo / ".github" / "CODEOWNERS"
+    security = repo / "SECURITY.md"
+    contributing = repo / "CONTRIBUTING.md"
     workflow_text = workflow.read_text(encoding="utf-8") if workflow.exists() else ""
     return RepoStatus(
         path=repo,
@@ -58,28 +65,65 @@ def inspect_repo(repo: Path) -> RepoStatus:
         workflow=workflow.exists(),
         pr_template=template.exists(),
         shared_action="heurema/repo-governance/actions/pr-intake-gate" in workflow_text,
+        codeowners=codeowners.exists(),
+        security=security.exists(),
+        contributing=contributing.exists(),
+        license=has_license(repo),
     )
 
 
 def print_markdown(statuses: list[RepoStatus]) -> None:
-    print("| repo | policy | workflow | PR template | shared action | path |")
-    print("| --- | --- | --- | --- | --- | --- |")
+    print("| repo | policy | workflow | PR template | shared action | CODEOWNERS | SECURITY | CONTRIBUTING | LICENSE | path |")
+    print("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
     for item in statuses:
         print(
             f"| {item.name} | {yes(item.policy)} | {yes(item.workflow)} | "
-            f"{yes(item.pr_template)} | {yes(item.shared_action)} | `{item.path}` |"
+            f"{yes(item.pr_template)} | {yes(item.shared_action)} | {yes(item.codeowners)} | "
+            f"{yes(item.security)} | {yes(item.contributing)} | {yes(item.license)} | `{item.path}` |"
         )
 
 
 def print_csv(statuses: list[RepoStatus]) -> None:
     writer = csv.writer(sys.stdout)
-    writer.writerow(["repo", "policy", "workflow", "pr_template", "shared_action", "path", "remote"])
+    writer.writerow(
+        [
+            "repo",
+            "policy",
+            "workflow",
+            "pr_template",
+            "shared_action",
+            "codeowners",
+            "security",
+            "contributing",
+            "license",
+            "path",
+            "remote",
+        ]
+    )
     for item in statuses:
-        writer.writerow([item.name, item.policy, item.workflow, item.pr_template, item.shared_action, item.path, item.remote])
+        writer.writerow(
+            [
+                item.name,
+                item.policy,
+                item.workflow,
+                item.pr_template,
+                item.shared_action,
+                item.codeowners,
+                item.security,
+                item.contributing,
+                item.license,
+                item.path,
+                item.remote,
+            ]
+        )
 
 
 def yes(value: bool) -> str:
     return "yes" if value else "no"
+
+
+def has_license(repo: Path) -> bool:
+    return any(path.exists() for path in (repo / "LICENSE", repo / "LICENSE.md", repo / "LICENSE.txt", repo / "COPYING"))
 
 
 def parse_args() -> argparse.Namespace:
