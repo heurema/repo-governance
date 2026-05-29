@@ -32,8 +32,8 @@ jobs:
 
     steps:
       - name: Check Codex review threads
-        # Replace with a protected tag or exact commit SHA.
-        uses: heurema/repo-governance/actions/codex-review-gate@<commit-sha>
+        # Pin to an exact commit SHA in mature repos when practical.
+        uses: heurema/repo-governance/actions/codex-review-gate@v0.3.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           review-author-logins: chatgpt-codex-connector

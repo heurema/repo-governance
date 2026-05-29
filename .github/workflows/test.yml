@@ -26,3 +26,5 @@ jobs:
           python3 tests/test_pr_intake_gate.py
           python3 tests/test_codex_review_gate.py
           python3 tests/test_codex_review_ready.py
+          python3 tests/test_repo_governance_validation.py
+          python3 scripts/validate_repo_governance.py
