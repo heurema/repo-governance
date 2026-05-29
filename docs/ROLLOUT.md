@@ -155,3 +155,54 @@ Before relying on the Codex gates, open temporary PRs or use an existing test PR
 6. Push a change that makes an old Codex thread outdated. Expected: old outdated threads stop blocking, but `codex-review-ready` remains non-green until Codex reviews the new head.
 7. PR with unresolved non-Codex review thread. Expected: Codex gates ignore it; branch protection conversation resolution may still block merge.
 8. Optional standalone `codex-review-gate` with recommended `require-current-review: false`, before Codex has reviewed the current head. Expected: the thread-only check passes when no unresolved Codex threads exist.
+
+## Updating consumer action refs
+
+Use `scripts/rollout_release.py` when a repo-governance release needs to be rolled out across local consumer repository checkouts. The script only updates existing `heurema/repo-governance/actions/...` refs in workflow, template, README, and rollout-doc files. It does not add missing workflows, change branch protection, or alter consumer policy semantics.
+
+Audit local consumers first:
+
+```bash
+python3 /path/to/repo-governance/scripts/rollout_release.py \
+  --root ~/personal/heurema \
+  --from v0.3.0 \
+  --to v0.4.0 \
+  --mode audit
+```
+
+Prepare local commits without pushing:
+
+```bash
+python3 /path/to/repo-governance/scripts/rollout_release.py \
+  --root ~/personal/heurema \
+  --from v0.3.0 \
+  --to v0.4.0 \
+  --mode patch \
+  --apply
+```
+
+Open PRs for selected repos:
+
+```bash
+python3 /path/to/repo-governance/scripts/rollout_release.py \
+  --root ~/personal/heurema \
+  --from v0.3.0 \
+  --to v0.4.0 \
+  --mode pr \
+  --repos signum,punk,goalrail \
+  --apply
+```
+
+To pin consumers directly to the v0.4.0 release commit instead of the tag:
+
+```bash
+python3 /path/to/repo-governance/scripts/rollout_release.py \
+  --root ~/personal/heurema \
+  --from v0.3.0 \
+  --to f6a16882fd5e28968d77be063bb0ed4dca266c99 \
+  --pin sha \
+  --mode patch \
+  --apply
+```
+
+`patch` and `pr` are dry-run by default; pass `--apply` to modify consumer checkouts. Dirty repos and repos not on `main`, `master`, or the detected default branch are skipped unless `--allow-non-default` is passed.
