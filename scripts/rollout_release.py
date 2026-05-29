@@ -15,8 +15,8 @@ ACTION_REF_RE = re.compile(
     r"(?P<action>pr-intake-gate|codex-review-gate|codex-review-ready)"
     r"@(?P<ref>[A-Za-z0-9._/\-]+)"
 )
-DEFAULT_RELEASE_LABEL = "v0.4.0"
-DEFAULT_RELEASE_COMMIT = "f6a16882fd5e28968d77be063bb0ed4dca266c99"
+DEFAULT_RELEASE_LABEL = "v0.5.0"
+DEFAULT_RELEASE_COMMIT = ""
 
 
 @dataclass(frozen=True)
@@ -342,12 +342,19 @@ def build_release_context(args: argparse.Namespace) -> ReleaseContext:
     branch_name = args.branch_name or f"chore/repo-governance-{release_label}"
     commit_message = args.commit_message or f"chore: update repo-governance actions to {release_label}"
     pr_title = args.pr_title or commit_message
-    pr_body = (
-        f"Updates repo-governance action refs to the {release_label} release.\n\n"
-        f"- Release commit: {args.release_commit}\n"
-        "- Updates only `heurema/repo-governance/actions/...` refs.\n"
-        "- Does not change consumer policy semantics."
+    pr_body_lines = [
+        f"Updates repo-governance action refs to the {release_label} release.",
+        "",
+    ]
+    if args.release_commit:
+        pr_body_lines.append(f"- Release commit: {args.release_commit}")
+    pr_body_lines.extend(
+        [
+            "- Updates only `heurema/repo-governance/actions/...` refs.",
+            "- Does not change consumer policy semantics.",
+        ]
     )
+    pr_body = "\n".join(pr_body_lines)
     return ReleaseContext(
         from_ref=args.from_ref,
         to_ref=args.to_ref,

@@ -167,8 +167,9 @@ Audit local consumers first:
 ```bash
 python3 /path/to/repo-governance/scripts/rollout_release.py \
   --root ~/personal/heurema \
-  --from v0.3.0 \
-  --to v0.4.0 \
+  --from v0.4.0 \
+  --to v0.5.0 \
+  --release-label v0.5.0 \
   --mode audit
 ```
 
@@ -177,8 +178,9 @@ Prepare local commits without pushing:
 ```bash
 python3 /path/to/repo-governance/scripts/rollout_release.py \
   --root ~/personal/heurema \
-  --from v0.3.0 \
-  --to v0.4.0 \
+  --from v0.4.0 \
+  --to v0.5.0 \
+  --release-label v0.5.0 \
   --mode patch \
   --apply
 ```
@@ -188,21 +190,25 @@ Open PRs for selected repos:
 ```bash
 python3 /path/to/repo-governance/scripts/rollout_release.py \
   --root ~/personal/heurema \
-  --from v0.3.0 \
-  --to v0.4.0 \
+  --from v0.4.0 \
+  --to v0.5.0 \
+  --release-label v0.5.0 \
   --mode pr \
   --repos signum,punk,goalrail \
   --apply
 ```
 
-To pin consumers directly to the v0.4.0 release commit instead of the tag:
+To pin consumers directly to the v0.5.0 release commit instead of the tag after the release exists:
 
 ```bash
+V050_SHA="$(git -C /path/to/repo-governance rev-list -n 1 v0.5.0)"
 python3 /path/to/repo-governance/scripts/rollout_release.py \
   --root ~/personal/heurema \
-  --from v0.3.0 \
-  --to f6a16882fd5e28968d77be063bb0ed4dca266c99 \
+  --from v0.4.0 \
+  --to "$V050_SHA" \
   --pin sha \
+  --release-label v0.5.0 \
+  --release-commit "$V050_SHA" \
   --mode patch \
   --apply
 ```
