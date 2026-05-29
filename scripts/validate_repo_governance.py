@@ -62,6 +62,7 @@ def validate_policy_file(root: Path, path: Path) -> list[Finding]:
     rel = relative_path(root, path)
     try:
         config = engine.load_minimal_yaml(str(path))
+        engine.validate_policy(config)
         engine.marker_for(config)
     except Exception as exc:
         return [Finding(rel, str(exc))]
