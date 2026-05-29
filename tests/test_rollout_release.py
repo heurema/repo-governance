@@ -32,20 +32,20 @@ def action_ref_parser_extracts_action_and_ref() -> None:
 def replacement_updates_only_repo_governance_action_refs() -> None:
     text = "\n".join(
         [
-            "uses: heurema/repo-governance/actions/pr-intake-gate@v0.3.0",
-            "uses: owner/other-action@v0.3.0",
-            "Current docs mention @v0.3.0 as text.",
-            "uses: heurema/repo-governance/actions/codex-review-ready@v0.4.0",
+            "uses: heurema/repo-governance/actions/pr-intake-gate@v0.4.0",
+            "uses: owner/other-action@v0.4.0",
+            "Current docs mention @v0.4.0 as text.",
+            "uses: heurema/repo-governance/actions/codex-review-ready@v0.5.0",
         ]
     )
 
-    updated, count = rollout_release.replace_action_refs(text, "v0.3.0", "v0.4.0")
+    updated, count = rollout_release.replace_action_refs(text, "v0.4.0", "v0.5.0")
 
     assert count == 1
-    assert "heurema/repo-governance/actions/pr-intake-gate@v0.4.0" in updated
-    assert "owner/other-action@v0.3.0" in updated
-    assert "Current docs mention @v0.3.0 as text." in updated
-    assert "heurema/repo-governance/actions/codex-review-ready@v0.4.0" in updated
+    assert "heurema/repo-governance/actions/pr-intake-gate@v0.5.0" in updated
+    assert "owner/other-action@v0.4.0" in updated
+    assert "Current docs mention @v0.4.0 as text." in updated
+    assert "heurema/repo-governance/actions/codex-review-ready@v0.5.0" in updated
     print("ok - replacement updates only repo-governance action refs")
 
 
@@ -58,19 +58,19 @@ def audit_finds_refs_in_workflow_text() -> None:
             "jobs:\n"
             "  gate:\n"
             "    steps:\n"
-            "      - uses: heurema/repo-governance/actions/pr-intake-gate@v0.3.0\n",
+            "      - uses: heurema/repo-governance/actions/pr-intake-gate@v0.4.0\n",
             encoding="utf-8",
         )
 
-        matches = rollout_release.audit_repo(repo, "v0.3.0", "v0.4.0")
+        matches = rollout_release.audit_repo(repo, "v0.4.0", "v0.5.0")
 
     assert len(matches) == 1
     assert matches[0].repo == "consumer"
     assert matches[0].relative_file == ".github/workflows/pr-intake-gate.yml"
     assert matches[0].line == 4
     assert matches[0].action == "pr-intake-gate"
-    assert matches[0].old_ref == "v0.3.0"
-    assert matches[0].suggested_ref == "v0.4.0"
+    assert matches[0].old_ref == "v0.4.0"
+    assert matches[0].suggested_ref == "v0.5.0"
     print("ok - audit finds refs in workflow text")
 
 

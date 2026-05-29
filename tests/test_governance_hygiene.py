@@ -25,12 +25,14 @@ def community_files_exist_and_are_operational() -> None:
     assert "No license has been selected" in contributing
     assert "v0.2.0" in releases
     assert "v0.3.0" in releases
+    assert "v0.4.0" in releases
+    assert "docs/releases/v0.5.0.md" in releases
     assert "GitHub Release" in releases
     print("ok - community files exist and are operational")
 
 
-def v040_release_guidance_is_consistent() -> None:
-    release_notes = read("docs/releases/v0.4.0.md")
+def v050_release_guidance_is_consistent() -> None:
+    release_notes = read("docs/releases/v0.5.0.md")
     consumer_guidance = "\n".join(
         [
             read("README.md"),
@@ -40,18 +42,18 @@ def v040_release_guidance_is_consistent() -> None:
         ]
     )
 
-    assert "@v0.4.0" in consumer_guidance
-    assert "@v0.3.0" not in consumer_guidance
-    assert "Codex Review Ready" in release_notes
-    assert "git tag -a v0.4.0" in release_notes
-    assert "gh release create v0.4.0" in release_notes
+    assert "@v0.5.0" in consumer_guidance
+    assert "@v0.4.0" not in consumer_guidance
+    assert "strict root-level PR Intake policy validation" in release_notes
+    assert "git tag -a v0.5.0" in release_notes
+    assert "gh release create v0.5.0" in release_notes
     assert "after this PR is merged" in release_notes
-    print("ok - v0.4.0 release guidance is consistent")
+    print("ok - v0.5.0 release guidance is consistent")
 
 
 def main() -> int:
     community_files_exist_and_are_operational()
-    v040_release_guidance_is_consistent()
+    v050_release_guidance_is_consistent()
     return 0
 
 

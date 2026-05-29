@@ -15,8 +15,8 @@ ACTION_REF_RE = re.compile(
     r"(?P<action>pr-intake-gate|codex-review-gate|codex-review-ready)"
     r"@(?P<ref>[A-Za-z0-9._/\-]+)"
 )
-DEFAULT_RELEASE_LABEL = "v0.4.0"
-DEFAULT_RELEASE_COMMIT = "f6a16882fd5e28968d77be063bb0ed4dca266c99"
+DEFAULT_RELEASE_LABEL = "v0.5.0"
+DEFAULT_RELEASE_COMMIT = "resolve-from-v0.5.0-after-release"
 
 
 @dataclass(frozen=True)

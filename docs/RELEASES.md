@@ -1,6 +1,18 @@
 # Release Notes
 
-This repository currently has tags for `v0.1.0`, `v0.2.0`, and `v0.3.0`. GitHub Releases currently contains a published release entry for `v0.1.0`; `v0.2.0` and `v0.3.0` are tagged release points without matching GitHub Release entries.
+This repository currently has tags for `v0.1.0`, `v0.2.0`, `v0.3.0`, and `v0.4.0`. GitHub Releases currently contains published release entries for `v0.1.0` and `v0.4.0`; `v0.2.0` and `v0.3.0` are tagged release points without matching GitHub Release entries.
+
+`v0.5.0` release notes are staged in `docs/releases/v0.5.0.md`. Create the tag and GitHub Release only after the release-consistency PR is merged.
+
+## v0.4.0
+
+Tag: `v0.4.0`
+
+Summary:
+
+- Added the `codex-review-ready` action as the pre-merge Codex completion barrier.
+- Updated workflow templates and README guidance to use `@v0.4.0`.
+- Added release notes and post-merge release commands for the `v0.4.0` tag.
 
 ## v0.3.0
 
