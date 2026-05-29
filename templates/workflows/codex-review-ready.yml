@@ -36,8 +36,8 @@ jobs:
     steps:
       - name: Reconcile Codex Review ready status
         if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
-        # Replace with a protected tag or exact commit SHA.
-        uses: heurema/repo-governance/actions/codex-review-ready@<commit-sha>
+        # Pin to an exact commit SHA in mature repos when practical.
+        uses: heurema/repo-governance/actions/codex-review-ready@v0.3.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           review-author-logins: chatgpt-codex-connector
@@ -50,8 +50,8 @@ jobs:
 
       - name: Reconcile open PRs on schedule or dispatch
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        # Replace with a protected tag or exact commit SHA.
-        uses: heurema/repo-governance/actions/codex-review-ready@<commit-sha>
+        # Pin to an exact commit SHA in mature repos when practical.
+        uses: heurema/repo-governance/actions/codex-review-ready@v0.3.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           review-author-logins: chatgpt-codex-connector
