@@ -786,7 +786,10 @@ def trust_author(ctx: PullRequestContext, config: dict[str, Any], author_permiss
 
 
 def marker_for(config: dict[str, Any]) -> str:
-    return scalar_config(config, ("bot_comment", "marker"), DEFAULT_MARKER)
+    marker = scalar_config(config, ("bot_comment", "marker"), DEFAULT_MARKER).strip()
+    if not marker:
+        raise GateError("bot_comment.marker must be non-empty and unique")
+    return marker
 
 
 def pass_comment(config: dict[str, Any]) -> str:

@@ -9,6 +9,7 @@ on:
       - synchronize
       - labeled
       - unlabeled
+      - ready_for_review
 
 permissions:
   contents: read
@@ -19,7 +20,7 @@ jobs:
   pr-intake-gate:
     name: pr-intake-gate
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout trusted base code
@@ -30,7 +31,11 @@ jobs:
           persist-credentials: false
 
       - name: Run PR intake gate
-        uses: heurema/repo-governance/actions/pr-intake-gate@v0.1.0
+        uses: heurema/repo-governance/actions/pr-intake-gate@v0.3.0
         with:
           policy-path: .github/pr-intake-gate.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          codex-review-require-current-review: 'false'
+          codex-review-wait-seconds: '0'
+          codex-review-resolution-wait-seconds: '480'
+          codex-review-poll-interval-seconds: '10'
