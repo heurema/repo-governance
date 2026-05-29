@@ -29,8 +29,29 @@ def community_files_exist_and_are_operational() -> None:
     print("ok - community files exist and are operational")
 
 
+def v040_release_guidance_is_consistent() -> None:
+    release_notes = read("docs/releases/v0.4.0.md")
+    consumer_guidance = "\n".join(
+        [
+            read("README.md"),
+            read("templates/workflows/pr-intake-gate.yml"),
+            read("templates/workflows/codex-review-gate.yml"),
+            read("templates/workflows/codex-review-ready.yml"),
+        ]
+    )
+
+    assert "@v0.4.0" in consumer_guidance
+    assert "@v0.3.0" not in consumer_guidance
+    assert "Codex Review Ready" in release_notes
+    assert "git tag -a v0.4.0" in release_notes
+    assert "gh release create v0.4.0" in release_notes
+    assert "after this PR is merged" in release_notes
+    print("ok - v0.4.0 release guidance is consistent")
+
+
 def main() -> int:
     community_files_exist_and_are_operational()
+    v040_release_guidance_is_consistent()
     return 0
 
 
