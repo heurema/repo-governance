@@ -25,11 +25,13 @@ sys.modules["pr_intake_gate"] = pr_intake_gate
 spec.loader.exec_module(pr_intake_gate)
 
 GateError = pr_intake_gate.GateError
+DEFAULT_MARKER = pr_intake_gate.DEFAULT_MARKER
 added_lines_from_patch = pr_intake_gate.added_lines_from_patch
 get_label_details = pr_intake_gate.get_label_details
 is_gate_comment = pr_intake_gate.is_gate_comment
 load_minimal_yaml = pr_intake_gate.load_minimal_yaml
 managed_verdict_labels = pr_intake_gate.managed_verdict_labels
+marker_for = pr_intake_gate.marker_for
 markdown_sections = pr_intake_gate.markdown_sections
 missing_required_sections = pr_intake_gate.missing_required_sections
 path_matches = pr_intake_gate.path_matches
@@ -175,6 +177,14 @@ def raise_gate_error() -> None:
 
 def helper_semantics() -> None:
     marker = "<!-- pr-intake-gate -->"
+    assert marker_for({}) == DEFAULT_MARKER
+    for bad_config in ({"bot_comment": {"marker": ""}}, {"bot_comment": {"marker": "   "}}):
+        try:
+            marker_for(bad_config)
+        except GateError as exc:
+            assert str(exc) == "bot_comment.marker must be non-empty and unique"
+        else:
+            raise AssertionError("empty bot_comment.marker should fail")
     assert path_matches("README.md", "README.md")
     assert path_matches("docs/brand/INDEX.md", "docs/**/*.md")
     assert path_matches("scripts/check.sh", "scripts/**/*.sh")
