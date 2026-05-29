@@ -91,7 +91,7 @@ jobs:
           persist-credentials: false
 
       - name: Run PR intake gate
-        uses: heurema/repo-governance/actions/pr-intake-gate@v0.3.0
+        uses: heurema/repo-governance/actions/pr-intake-gate@v0.4.0
         with:
           policy-path: .github/pr-intake-gate.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -101,7 +101,7 @@ jobs:
           codex-review-poll-interval-seconds: '10'
 ```
 
-For stricter supply-chain control, replace `@v0.3.0` with a commit SHA after testing. Existing repositories pinned to an older SHA must update that SHA to receive newer central gate behavior.
+`v0.4.0` is the first recommended release tag that includes the current `codex-review-ready` action, marker fail-fast behavior, and template validation fixes. For stricter supply-chain control, replace `@v0.4.0` with the full commit SHA resolved from the tag after testing. Existing repositories pinned to an older SHA or tag must update that pin to receive newer central gate behavior.
 
 ## Codex Review Ready workflow
 
